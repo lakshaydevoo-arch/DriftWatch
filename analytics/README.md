@@ -198,9 +198,9 @@ from driftwatch_analytics.profiling import category_labels
 
 labels = category_labels(report.parsed["region"].values, LogicalType.CATEGORICAL)
 result = categorical_drift(profile.features["region"], labels)
-result.js_distance, result.drift_detected     # JS is the primary method (threshold 0.1)
-result.chi2_p_value, result.chi2_pooled       # reported; None if too little data
-result.categories                             # bucket order; None = "other"
+result.js_distance, result.drift_detected  # JS is the primary method (threshold 0.1)
+result.chi2_p_value, result.chi2_pooled  # reported; None if too little data
+result.categories  # bucket order; None = "other"
 result.unseen_categories, result.reference_truncated
 ```
 

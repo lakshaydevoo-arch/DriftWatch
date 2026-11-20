@@ -27,6 +27,10 @@ class NumericDriftResult(_Frozen):
     # p-value is informative but does not set the drift flag (section 3.2).
     ks_statistic: float = Field(ge=0, le=1)
     ks_p_value: float = Field(ge=0, le=1)
+    # Wasserstein-1 distance divided by the reference standard deviation, so
+    # it is unit-free ("how many reference sds the distribution moved").
+    # None when the reference is constant (sd = 0). Reported only.
+    wasserstein_normalized: float | None = Field(default=None, ge=0)
     reference_count: int = Field(ge=1)
     reference_sample_size: int = Field(ge=1, description="Reference values used by KS")
     current_count: int = Field(ge=1)

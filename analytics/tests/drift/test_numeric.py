@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 from pydantic import ValidationError
+from scipy.stats import wasserstein_distance
 
 from driftwatch_analytics.drift import (
     NumericDriftConfig,
@@ -227,7 +228,10 @@ def test_constant_reference_column() -> None:
     assert isinstance(reference, NumericProfile) and reference.is_constant
 
     assert not numeric_drift(reference, np.full(50, 5.0)).drift_detected
-    assert numeric_drift(reference, np.full(50, 6.0)).drift_detected
+    changed = numeric_drift(reference, np.full(50, 6.0))
+    assert changed.drift_detected
+    # Not defined for a constant reference (division by sd = 0).
+    assert changed.wasserstein_normalized is None
 
 
 def test_results_are_deterministic(reference: NumericProfile) -> None:
@@ -258,3 +262,40 @@ def test_invalid_current_values_are_rejected(
 def test_invalid_config_is_rejected(kwargs: dict[str, float]) -> None:
     with pytest.raises(ValidationError):
         NumericDriftConfig(**kwargs)
+
+
+# --- normalised Wasserstein (ML_MONITORING_DESIGN.md section 3.3) ---------------
+
+
+@pytest.mark.parametrize("shift", [0.0, 0.5, 1.0, 2.0])
+def test_wasserstein_equals_shift_in_reference_sds(reference: NumericProfile, shift: float) -> None:
+    # For a pure location shift, W1 equals the shift; divided by the reference
+    # sd (1 here) it reads "moved by `shift` standard deviations".
+    current = shift_mean(_normal(N, 13), "x", shift)["x"].to_numpy()
+
+    result = numeric_drift(reference, current)
+
+    assert result.wasserstein_normalized is not None
+    assert result.wasserstein_normalized == pytest.approx(shift, abs=0.05)
+
+
+def test_wasserstein_is_unit_free() -> None:
+    base = _normal(N, 14)["x"]
+    in_metres = _profile(base * 1.0)
+    in_millimetres = _profile(base * 1000.0)
+    current = shift_mean(_normal(N, 15), "x", 0.5)["x"]
+
+    a = numeric_drift(in_metres, (current * 1.0).to_numpy()).wasserstein_normalized
+    b = numeric_drift(in_millimetres, (current * 1000.0).to_numpy()).wasserstein_normalized
+
+    assert a is not None and b is not None
+    assert a == pytest.approx(b, rel=1e-6)
+
+
+def test_wasserstein_matches_scipy(reference: NumericProfile) -> None:
+    current = _normal(700, 16)["x"].to_numpy()
+
+    result = numeric_drift(reference, current)
+
+    expected = wasserstein_distance(np.asarray(reference.sample), current) / reference.std
+    assert result.wasserstein_normalized == pytest.approx(expected)

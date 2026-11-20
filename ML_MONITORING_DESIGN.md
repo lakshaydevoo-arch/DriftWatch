@@ -94,13 +94,22 @@ distribution.
   reason the p-value is reported but PSI is the default drift flag. `D` itself
   is a usable effect size.
 
-### 3.3 Wasserstein distance — optional
+### 3.3 Wasserstein distance — reported alongside
 
 `scipy.stats.wasserstein_distance` on the reference sample vs. the current
-values, normalised by the reference standard deviation so that a single
-threshold (default `0.1`) can be used across features with different units.
-Undefined when the reference standard deviation is 0 — such features are
-reported as `CONSTANT_IN_REFERENCE`.
+values, divided by the reference (population) standard deviation. The result
+is unit-free and easy to read: for a pure location shift it equals the shift
+in reference standard deviations (tested), and it is unchanged if a feature
+is rescaled (e.g. metres vs. millimetres; tested).
+
+Unlike PSI it uses actual distances, not just bin membership, so a large
+move of a few extreme values raises it more than it raises PSI.
+
+It is reported only and does not set the drift flag. Making it selectable as
+the primary method (proposed threshold 0.1) is left for later, because it
+needs its own small-sample calibration. It is undefined when the reference
+standard deviation is 0 (returned as `null`; the feature is flagged
+`CONSTANT_IN_REFERENCE`, §7).
 
 ## 4. Categorical features
 

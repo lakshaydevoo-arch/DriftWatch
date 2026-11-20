@@ -1,4 +1,4 @@
-"""Numeric drift: Population Stability Index (primary) and two-sample KS.
+"""Numeric drift: PSI (primary), two-sample KS and normalised Wasserstein.
 
 See ML_MONITORING_DESIGN.md section 3 for the definitions, assumptions and
 limitations.
@@ -6,7 +6,7 @@ limitations.
 
 import numpy as np
 import numpy.typing as npt
-from scipy.stats import ks_2samp
+from scipy.stats import ks_2samp, wasserstein_distance
 
 from driftwatch_analytics.drift.models import NumericDriftConfig, NumericDriftResult
 from driftwatch_analytics.profiling.binning import bin_counts
@@ -60,6 +60,9 @@ def numeric_drift(
 
     sample = np.asarray(reference.sample, dtype=np.float64)
     ks = ks_2samp(sample, values, alternative="two-sided", method="auto")
+    wasserstein = (
+        float(wasserstein_distance(sample, values)) / reference.std if reference.std > 0 else None
+    )
 
     return NumericDriftResult(
         psi=psi,
@@ -67,6 +70,7 @@ def numeric_drift(
         drift_detected=psi > config.psi_threshold,
         ks_statistic=float(ks.statistic),
         ks_p_value=float(ks.pvalue),
+        wasserstein_normalized=wasserstein,
         reference_count=reference.count,
         reference_sample_size=sample.size,
         current_count=int(values.size),
