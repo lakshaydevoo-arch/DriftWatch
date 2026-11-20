@@ -3,7 +3,8 @@
 **Status:** Milestone 1 in progress. Implemented: service scaffold with
 `/health` (1.1), the seeded synthetic data generator (1.2) and CSV loading
 with schema inference and batch validation (1.3), and reference profiles
-(1.4), and numeric drift with PSI and KS (1.5).
+(1.4), numeric drift with PSI and KS (1.5), and categorical drift with
+Jensen–Shannon and chi-square (1.6).
 
 Stateless FastAPI service that infers schemas, builds reference profiles and
 computes drift and performance metrics. It has no database and no filesystem
@@ -186,10 +187,25 @@ monitored column with no valid values (usually a wrong type override).
 from driftwatch_analytics.drift import NumericDriftConfig, numeric_drift
 
 result = numeric_drift(profile.features["age"], current_valid_values)
-result.psi, result.drift_detected        # PSI is the primary method (threshold 0.2)
-result.ks_statistic, result.ks_p_value   # reported, does not set the flag
-result.reference_proportions, result.current_proportions   # per bin, for charts
+result.psi, result.drift_detected  # PSI is the primary method (threshold 0.2)
+result.ks_statistic, result.ks_p_value  # reported, does not set the flag
+result.reference_proportions, result.current_proportions  # per bin, for charts
 ```
+
+```python
+from driftwatch_analytics.drift import categorical_drift
+from driftwatch_analytics.profiling import category_labels
+
+labels = category_labels(report.parsed["region"].values, LogicalType.CATEGORICAL)
+result = categorical_drift(profile.features["region"], labels)
+result.js_distance, result.drift_detected     # JS is the primary method (threshold 0.1)
+result.chi2_p_value, result.chi2_pooled       # reported; None if too little data
+result.categories                             # bucket order; None = "other"
+result.unseen_categories, result.reference_truncated
+```
+
+`category_labels` is the shared conversion (booleans become `"true"` /
+`"false"`) used by both the profile and drift detection.
 
 `current_valid_values` must exclude missing and invalid values (use
 `report.parsed[name].values.dropna()` from `validate_batch`). Empty or

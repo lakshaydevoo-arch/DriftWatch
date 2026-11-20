@@ -5,6 +5,7 @@ See ARCHITECTURE.md (decision D3) and ML_MONITORING_DESIGN.md section 8.
 
 from driftwatch_analytics.profiling.binning import assign_bins, bin_counts, quantile_edges
 from driftwatch_analytics.profiling.builder import ProfileError, build_reference_profile
+from driftwatch_analytics.profiling.categories import category_labels
 from driftwatch_analytics.profiling.models import (
     PROFILE_FORMAT_VERSION,
     CategoricalProfile,
@@ -25,5 +26,6 @@ __all__ = [
     "assign_bins",
     "bin_counts",
     "build_reference_profile",
+    "category_labels",
     "quantile_edges",
 ]

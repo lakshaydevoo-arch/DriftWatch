@@ -7,6 +7,75 @@ following session's commit (or read with `git log`).
 
 ---
 
+## 2026-11-21 — Milestone 1.6: categorical drift (Jensen–Shannon and chi-square)
+
+**Feature implemented**
+
+- `drift.categorical_drift(profile, labels, config)`: aligns reference and
+  current counts on ordered buckets, computes Jensen–Shannon distance
+  (base 2; sets `drift_detected`, threshold 0.1) and a chi-square test of
+  homogeneity (reported only). Returns `CategoricalDriftResult` with
+  per-bucket proportions, unseen categories (capped list plus total count),
+  `reference_truncated`, pooled categories and warnings.
+- `drift.pool_rare_buckets`: deterministic pooling so every expected count
+  is ≥ 5, using `C_j ≥ 5·N/min(R)` for 2 × k tables.
+- Refactor: `profiling.category_labels` is now the single conversion of
+  parsed values to labels (booleans to `"true"`/`"false"`), used by the
+  profile builder and by drift detection. Existing tests passed unchanged
+  after the refactor.
+
+**Files changed**
+
+- `analytics/src/driftwatch_analytics/drift/{__init__,models,categorical}.py`
+- `analytics/src/driftwatch_analytics/profiling/{__init__,builder,categories}.py`
+- `analytics/tests/drift/test_categorical.py`
+- `analytics/README.md`, `ML_MONITORING_DESIGN.md` (§4.1, §4.2),
+  `DEVELOPMENT_ROADMAP.md`, `CHANGELOG.md`, `DEVELOPMENT_LOG.md`
+
+**Tests executed** (Python 3.13.15)
+
+- `pytest`: 217 passed (25 new). JS against an independent implementation of
+  the definition; chi-square against SciPy on the same table; identical
+  distributions (JS 0, p = 1); disjoint categories (JS 1); no drift not
+  flagged; proportion shift detected; JS increasing with shift size;
+  large-sample caveat (chi-square significant, JS not); unseen categories
+  in complete vs. truncated profiles (truncated: no false drift on identical
+  data); capped unseen report; three pooling cases; skipped test on tiny
+  batches; **200 no-drift trials**: 0 JS false alarms, chi-square
+  rejections within the expected binomial range; boolean feature end to end
+  (validate → labels → drift); JSON round trip; determinism; invalid input
+  and config.
+- `ruff format --check .`, `ruff check .`, `mypy` (strict): clean.
+
+**Issues found and fixed during verification**
+
+- Three pooling tests were wrong; the code was right. In each, the rare
+  categories combined still had expected counts below 5 (e.g. 4 rare rows
+  against a 5,000-row reference gives an expected count of 3.3), so
+  absorbing another category was correct. The tests now use tables whose
+  intended outcome is what the statistics require, with the arithmetic in
+  comments.
+
+**Finding that affects the design**
+
+- Simulated JS false-alarm rates under no drift (4 categories): 85% at 30
+  rows per side, 71% at 50, 14% at 200, under 1% from about 500. Recorded in
+  §4.1 alongside the PSI finding from 1.5; task 1.7 must address minimum
+  sample size for both methods.
+
+**Commit hash**
+
+- To be recorded in the next entry (see `git log`).
+
+**Remaining work**
+
+- 1.7 Wasserstein, data-quality flags and a minimum-sample-size policy that
+  keeps no-drift false alarms low.
+
+**Open decisions**: license (MIT vs Apache-2.0).
+
+---
+
 ## 2026-11-21 — Milestone 1.5: numeric drift (PSI and KS)
 
 **Feature implemented**
@@ -62,7 +131,7 @@ following session's commit (or read with `git log`).
 
 **Commit hash**
 
-- To be recorded in the next entry (see `git log`).
+- `3176f63`
 
 **Remaining work**
 

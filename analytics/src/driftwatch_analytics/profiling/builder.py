@@ -9,6 +9,7 @@ import pandas as pd
 
 from driftwatch_analytics._version import ENGINE_VERSION
 from driftwatch_analytics.profiling.binning import bin_counts, quantile_edges
+from driftwatch_analytics.profiling.categories import category_labels
 from driftwatch_analytics.profiling.models import (
     CategoricalProfile,
     FeatureProfile,
@@ -118,10 +119,8 @@ def _numeric_profile(name: str, parsed: ParsedColumn, config: ProfileConfig) -> 
 def _categorical_profile(
     parsed: ParsedColumn, logical_type: LogicalType, config: ProfileConfig
 ) -> CategoricalProfile:
-    values = parsed.values.dropna()
-    if logical_type is LogicalType.BOOLEAN:
-        values = values.map({True: "true", False: "false"})
-    frequencies = values.astype("str").value_counts()
+    values = category_labels(parsed.values, logical_type)
+    frequencies = values.value_counts()
     # Top categories by count; ties broken by value so the choice is deterministic.
     ranked = sorted(frequencies.items(), key=lambda item: (-item[1], item[0]))
     kept = dict(sorted(ranked[: config.max_categories]))

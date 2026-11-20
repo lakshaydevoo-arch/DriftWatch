@@ -115,15 +115,44 @@ Handles categories with zero probability on one side without smoothing,
 so **unseen categories** in the current batch are measured correctly.
 Default threshold: `0.1`.
 
+**Buckets.** Reference and current counts are aligned on an ordered list:
+kept reference categories (sorted), then unseen current categories (sorted),
+then an "other" bucket (label `null`) if it has any mass. Using `null`
+rather than a sentinel string means a real category can never collide with
+it. If the profile kept only its top categories (§4.3), a current category
+outside them might be a rare reference category, so all such values go into
+the "other" bucket instead of getting their own bucket. They are still
+listed as unseen, with `reference_truncated = true`.
+
+**Small samples.** Like PSI, JS distance is biased upward on small batches.
+In 2,000 no-drift simulations with 4 categories the false-alarm rate at the
+0.1 threshold was:
+
+| Rows per side | 30 | 50 | 100 | 200 | 500 | 1,000 |
+|---------------|----|----|-----|-----|-----|-------|
+| Mean JS | 0.18 | 0.14 | 0.10 | 0.07 | 0.04 | 0.03 |
+| False alarms | 85% | 71% | 44% | 14% | 0.6% | 0% |
+
+The bias also grows with the number of categories. Task 1.7 handles the
+minimum sample size for both PSI and JS.
+
 ### 4.2 Chi-square test of homogeneity — reported alongside
 
 `scipy.stats.chi2_contingency` on a 2 × k table of reference vs. current
 counts.
 
-- **Assumption:** expected count ≥ 5 in each cell. Categories below this are
-  merged into a single `__other__` bucket before testing; if the test is still
-  invalid, the p-value is omitted and a warning is returned.
-- Same large-sample caveat as KS.
+- **Assumption:** expected count ≥ 5 in each cell. In a 2 × k table the
+  expected count of cell (i, j) is `R_i · C_j / N`, so a category is large
+  enough exactly when its total `C_j ≥ 5 · N / min(R)`. Categories below that
+  are pooled together; if the pool is still too small it absorbs the
+  smallest remaining category until it is large enough. If fewer than two
+  groups remain, the p-value is omitted and a warning is returned. The
+  pooled categories are listed in the result.
+- No Yates continuity correction (`correction=False`): with every expected
+  count ≥ 5 the uncorrected test is adequate, and it keeps 2 × 2 tables
+  consistent with larger ones.
+- Same large-sample caveat as KS: a 2-point shift in one category's share is
+  significant with 20,000 rows but stays below the JS threshold.
 
 ### 4.3 High cardinality
 
