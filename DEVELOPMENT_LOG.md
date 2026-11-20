@@ -7,6 +7,71 @@ following session's commit (or read with `git log`).
 
 ---
 
+## 2026-11-21 — Milestone 1.5: numeric drift (PSI and KS)
+
+**Feature implemented**
+
+- `drift.population_stability_index`: PSI over bin proportions, ε-replacement
+  of zero proportions.
+- `drift.numeric_drift(profile, current_values, config)`: bins current values
+  with the shared `profiling.binning` rule, computes PSI (sets
+  `drift_detected`, threshold 0.2) and `scipy.stats.ks_2samp` against the
+  profile's seeded sample (reported only). Returns a frozen Pydantic
+  `NumericDriftResult` with per-bin proportions for charts.
+- Added SciPy 1.18 (runtime) and scipy-stubs (dev).
+
+**Files changed**
+
+- `analytics/src/driftwatch_analytics/drift/{__init__,models,numeric}.py`
+- `analytics/tests/drift/{__init__,test_numeric}.py`
+- `analytics/pyproject.toml`, `analytics/README.md`
+- `ML_MONITORING_DESIGN.md` (§3.1 reference points), `DEVELOPMENT_ROADMAP.md`,
+  `CHANGELOG.md`, `DEVELOPMENT_LOG.md`
+
+**Tests executed** (Python 3.13.15)
+
+- `pytest`: 192 passed (27 new). PSI against a hand-computed value,
+  symmetry, ε handling; no-drift PSI within 5× the theoretical noise; mean
+  shifts with PSI ≈ d² (0.25 not flagged, 0.5 and 1.0 flagged); PSI
+  increasing with shift size; variance change; a 0.1 sd shift with KS
+  p < 0.001 but PSI not flagged (large-sample caveat); out-of-range values;
+  multiplicative change on a log-normal feature; **200 repeated no-drift
+  trials**: 0 PSI false alarms, and KS rejections at α = 0.05 within the
+  binomial range expected for uniform p-values; constant reference; capped
+  KS sample; custom threshold; determinism; invalid input and config.
+- `ruff format --check .`, `ruff check .`, `mypy` (strict): clean.
+
+**Issues found and fixed during verification**
+
+- Two of my test expectations were wrong; the code was right:
+  - a constant `5.0` column is inferred as an integer-coded categorical, so
+    the test now overrides it to numeric;
+  - I expected ×1.3 on a log-normal feature to be flagged, but it is only a
+    0.33 sd shift in log space (PSI ≈ 0.09). The test now checks the
+    `(ln k / σ)²` relationship for ×1.3 (not flagged) and ×2 (flagged), and
+    the relationship is documented in the design doc.
+
+**Finding that affects the design**
+
+- While documenting PSI noise I simulated 2,000 no-drift trials with 50 rows
+  on each side: mean PSI 0.48 and an 85% false-alarm rate at the 0.2
+  threshold. Empty bins make the ε term dominate. The design's 30-row
+  minimum (§7) is far too low for PSI. Recorded in the design doc and the
+  roadmap item for 1.7, where the minimum (or a sample-size-aware threshold)
+  will be chosen with tests.
+
+**Commit hash**
+
+- To be recorded in the next entry (see `git log`).
+
+**Remaining work**
+
+- 1.6 categorical drift: Jensen–Shannon distance and chi-square.
+
+**Open decisions**: license (MIT vs Apache-2.0).
+
+---
+
 ## 2026-11-21 — Milestone 1.4: reference profile builder
 
 **Feature implemented**
@@ -57,7 +122,7 @@ following session's commit (or read with `git log`).
 
 **Commit hash**
 
-- To be recorded in the next entry (see `git log`).
+- `627ce5e`
 
 **Remaining work**
 

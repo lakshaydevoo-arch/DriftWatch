@@ -3,7 +3,7 @@
 **Status:** Milestone 1 in progress. Implemented: service scaffold with
 `/health` (1.1), the seeded synthetic data generator (1.2) and CSV loading
 with schema inference and batch validation (1.3), and reference profiles
-(1.4). No drift statistics yet.
+(1.4), and numeric drift with PSI and KS (1.5).
 
 Stateless FastAPI service that infers schemas, builds reference profiles and
 computes drift and performance metrics. It has no database and no filesystem
@@ -34,7 +34,7 @@ analytics/
 | python-multipart | CSV upload handling |
 | pandas | CSV parsing, column handling |
 | numpy | Quantiles, binning, sampling |
-| scipy | KS, chi-square, Wasserstein, Jensen–Shannon |
+| scipy (+ scipy-stubs for mypy) | KS, chi-square, Wasserstein, Jensen–Shannon |
 | scikit-learn | Performance metrics; bundled real datasets for tests |
 | pytest, httpx2 | Tests (`httpx2` is the transport Starlette's test client requires) |
 | ruff, mypy | Linting/formatting and type checking (dev only) |
@@ -164,9 +164,11 @@ Thresholds are configurable through `InferenceConfig`.
 ```python
 from driftwatch_analytics.profiling import ProfileConfig, ReferenceProfile, build_reference_profile
 
-profile = build_reference_profile(text, schema, ProfileConfig(n_bins=10, sample_size=10_000, seed=42))
-stored = profile.model_dump_json()                       # what the backend persists
-profile = ReferenceProfile.model_validate_json(stored)   # re-validated on load
+profile = build_reference_profile(
+    text, schema, ProfileConfig(n_bins=10, sample_size=10_000, seed=42)
+)
+stored = profile.model_dump_json()  # what the backend persists
+profile = ReferenceProfile.model_validate_json(stored)  # re-validated on load
 ```
 
 A profile records the engine and library versions, the config, the schema and,
@@ -177,6 +179,22 @@ implementation of the bin rule, to be reused by drift detection.
 
 Errors (`ProfileError`): data not matching the schema, zero rows, or a
 monitored column with no valid values (usually a wrong type override).
+
+## Numeric drift (`driftwatch_analytics.drift`)
+
+```python
+from driftwatch_analytics.drift import NumericDriftConfig, numeric_drift
+
+result = numeric_drift(profile.features["age"], current_valid_values)
+result.psi, result.drift_detected        # PSI is the primary method (threshold 0.2)
+result.ks_statistic, result.ks_p_value   # reported, does not set the flag
+result.reference_proportions, result.current_proportions   # per bin, for charts
+```
+
+`current_valid_values` must exclude missing and invalid values (use
+`report.parsed[name].values.dropna()` from `validate_batch`). Empty or
+non-finite input raises `ValueError`; minimum-sample-size handling comes
+with task 1.7.
 
 ## API
 

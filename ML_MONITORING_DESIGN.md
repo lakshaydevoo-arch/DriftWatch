@@ -46,9 +46,9 @@ PSI = Σ_i (c_i − r_i) · ln(c_i / r_i)
   bin count is reported. Bins are right-closed, `(e_i, e_{i+1}]`, and the same
   binning code is used for the profile and for drift runs, so the two
   histograms always line up.
-- **Zero proportions:** replaced by `ε = 1e-4` before the log to avoid
-  infinities. This is a smoothing choice that slightly biases PSI for bins
-  with very few observations.
+- **Zero proportions:** replaced by `ε = 1e-4` (on either side, without
+  renormalising) before the log to avoid infinities. This is a smoothing
+  choice that slightly biases PSI for bins with very few observations.
 - **Default threshold:** `0.2`. Common industry rule of thumb:
   `< 0.1` no meaningful shift, `0.1–0.25` moderate, `> 0.25` major.
 
@@ -59,6 +59,25 @@ full reference data is not needed at run time.
 **Limitations:** the thresholds are heuristics, not significance levels; PSI
 depends on the number of bins; with small current batches PSI is noisy and
 biased upward.
+
+**Useful reference points** (checked by tests in
+`analytics/tests/drift/test_numeric.py`):
+
+- With no drift, PSI is roughly `(bins − 1) · (1/n_ref + 1/n_cur)` for large
+  samples: about 0.0036 for 10 bins and 5,000 rows on each side. For small
+  samples it is much worse, because some bins end up empty and the ε term
+  inflates PSI. A simulation of 2,000 no-drift trials with 50 rows on each
+  side gave a mean PSI of 0.48, and **85% of batches were falsely flagged**
+  at 0.2. The minimum of 30 rows in §7 is therefore not enough for PSI. Task
+  1.7 must raise it or make the threshold depend on sample size.
+- For normal data, a mean shift of `d` standard deviations gives
+  `PSI ≈ d²`. The default threshold of 0.2 therefore flags shifts of about
+  0.45 standard deviations or more.
+- PSI depends only on which quantile bin a value falls into, so it reflects
+  shifts *relative to the feature's spread*. On a log-normal feature with
+  σ = 0.8, multiplying every value by 1.3 is a log-space shift of only
+  `ln 1.3 / 0.8 ≈ 0.33` sd (PSI ≈ 0.1, not flagged); doubling every value
+  (PSI ≈ 0.75) is flagged.
 
 ### 3.2 Two-sample Kolmogorov–Smirnov test — reported alongside
 

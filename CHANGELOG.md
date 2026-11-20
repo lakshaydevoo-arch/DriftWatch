@@ -26,3 +26,5 @@ first release.
 - `analytics`: deterministic reference profiles (quantile bins, category
   counts, seeded per-feature samples) that serialise to JSON and are
   re-validated when loaded.
+- `analytics`: numeric drift detection using PSI on the profile's quantile
+  bins (drift flag) with a two-sample KS test reported alongside.

@@ -8,14 +8,15 @@ version = "0.1.0.dev0"
 description = "Stateless statistical engine for DriftWatch drift and performance monitoring"
 readme = "README.md"
 requires-python = ">=3.12"
-# Only dependencies that the code actually imports are listed. SciPy and
-# scikit-learn are added in the tasks that first use them.
+# Only dependencies that the code actually imports are listed. scikit-learn
+# is added in the task that first uses it.
 dependencies = [
     "fastapi~=0.165",
     "uvicorn~=0.54",
     "pydantic~=2.14",
     "numpy~=2.5",
     "pandas~=3.1",
+    "scipy~=1.18",
 ]
 
 [project.optional-dependencies]
@@ -25,6 +26,7 @@ dev = [
     "ruff~=0.17.6",
     "mypy~=2.4",
     "pandas-stubs~=3.1.0",
+    "scipy-stubs~=1.18.1",
 ]
 
 [tool.setuptools.packages.find]
