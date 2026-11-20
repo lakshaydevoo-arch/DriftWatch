@@ -1,0 +1,55 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "driftwatch-analytics"
+version = "0.1.0.dev0"
+description = "Stateless statistical engine for DriftWatch drift and performance monitoring"
+readme = "README.md"
+requires-python = ">=3.12"
+# Only dependencies that the code actually imports are listed. Pandas, NumPy,
+# SciPy and scikit-learn are added in the tasks that first use them.
+dependencies = [
+    "fastapi~=0.165",
+    "uvicorn~=0.54",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest~=9.2",
+    "httpx2~=2.16",  # Starlette TestClient transport
+    "ruff~=0.17.6",
+    "mypy~=2.4",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+xfail_strict = true
+filterwarnings = ["error"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E", "W",  # pycodestyle
+    "F",       # pyflakes
+    "I",       # isort
+    "B",       # bugbear
+    "UP",      # pyupgrade
+    "N",       # naming
+    "SIM",     # simplify
+    "RUF",     # ruff-specific
+]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["src", "tests"]

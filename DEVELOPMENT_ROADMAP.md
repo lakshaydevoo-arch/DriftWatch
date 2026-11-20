@@ -14,11 +14,11 @@ any other component.
 - ✅ Directory structure for `analytics/`, `backend/`, `frontend/`
 - ✅ Root `.gitignore` and `.editorconfig`
 
-## Milestone 1 — Analytics engine (Python) ⏳
+## Milestone 1 — Analytics engine (Python) 🔄
 
 Depends on: nothing.
 
-- ⏳ 1.1 Project scaffold: `pyproject.toml`, FastAPI app with `/health`,
+- ✅ 1.1 Project scaffold: `pyproject.toml`, FastAPI app with `/health`,
   pytest, ruff (lint + format), mypy
 - ⏳ 1.2 Seeded synthetic dataset generator with drift injection
   (mean shift, variance change, category shift, missing values)

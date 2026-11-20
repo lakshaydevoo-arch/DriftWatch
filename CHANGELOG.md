@@ -12,3 +12,5 @@ first release.
 - Project documentation: architecture, ML monitoring design, roadmap,
   development log and contribution guide.
 - Repository structure for `analytics`, `backend` and `frontend` modules.
+- `analytics`: FastAPI service scaffold with a `GET /health` endpoint that
+  reports the engine version.

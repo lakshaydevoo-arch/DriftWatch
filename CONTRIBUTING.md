@@ -51,7 +51,7 @@ These commands become available as each module is scaffolded.
 
 | Module | Format / lint | Tests |
 |--------|---------------|-------|
-| `analytics` | `ruff format --check .` · `ruff check .` · `mypy src` | `pytest` |
+| `analytics` | `ruff format --check .` · `ruff check .` · `mypy` | `pytest` |
 | `backend` | `./mvnw spotless:check` | `./mvnw verify` (unit + Testcontainers integration tests) |
 | `frontend` | `npm run lint` · `npm run format:check` · `npm run typecheck` | `npm test` |
 
