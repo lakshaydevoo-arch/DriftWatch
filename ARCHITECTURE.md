@@ -1,0 +1,209 @@
+# DriftWatch Architecture
+
+Status: **Proposed** (Milestone 0). Nothing below is implemented yet; this
+document is the target the roadmap builds toward. Sections are updated as
+each component lands.
+
+## 1. Goals and non-goals
+
+**Goals**
+
+- Register a model and a *reference dataset* (the data the model was trained or
+  validated on).
+- Accept *current* batches of production inputs, predictions and (later)
+  ground-truth labels.
+- Compute data drift, prediction drift and performance degradation with
+  documented statistical methods.
+- Persist every monitoring run so results are auditable and reproducible.
+- Show results in a web dashboard.
+
+**Non-goals for v1**
+
+- Real-time / streaming monitoring (v1 is batch-oriented).
+- Multivariate drift detection (v1 is per-feature; see
+  [ML_MONITORING_DESIGN.md](ML_MONITORING_DESIGN.md#9-limitations)).
+- Multi-tenancy, user accounts, SSO.
+- Model serving. DriftWatch observes models; it does not host them.
+
+## 2. System overview
+
+```mermaid
+flowchart LR
+    UI["frontend/<br/>React + TypeScript"] -- REST/JSON --> API
+    Client["ML pipeline / CLI<br/>(uploads batches)"] -- REST --> API
+    subgraph Platform
+        API["backend/<br/>Spring Boot (Java 21)"]
+        ENG["analytics/<br/>FastAPI (Python)"]
+        DB[(PostgreSQL)]
+        FS[("Dataset file store<br/>(local volume)")]
+    end
+    API -- "HTTP: profile / drift requests" --> ENG
+    API --> DB
+    API --> FS
+```
+
+Three deployable units plus a database:
+
+| Component   | Responsibility | Owns state? |
+|-------------|----------------|-------------|
+| `backend`   | Public REST API, validation of requests, model & dataset registry, monitoring-run lifecycle, persistence, orchestration of the analytics engine. | Yes (PostgreSQL + file store) |
+| `analytics` | Stateless statistical engine: schema inference, reference profiling, drift tests, performance metrics. | **No** |
+| `frontend`  | Dashboard for models, runs and per-feature results. | No |
+| PostgreSQL  | System of record for metadata, profiles and results. | — |
+
+## 3. Why two backend services (and only two)
+
+The project brief warns against unnecessary microservices, so this split needs
+a real justification:
+
+- The statistics (SciPy, NumPy, Pandas, scikit-learn) have no equally mature,
+  well-tested Java equivalents. Re-implementing KS tests or quantile binning
+  in Java would be slower to build and more likely to be wrong.
+- The platform concerns (REST API, transactions, migrations, validation,
+  background execution) fit Spring Boot well.
+
+The split is kept as narrow as possible:
+
+- `analytics` is **stateless** — no database, no filesystem, no scheduling.
+  Given the same inputs and engine version it returns the same output. That
+  makes it easy to unit test and to reason about reproducibility.
+- Only `backend` talks to PostgreSQL. There is exactly one source of truth.
+- Communication is synchronous HTTP + JSON/multipart. No message broker until
+  there is a measured need for one.
+
+Alternative considered: a single Python service (FastAPI + SQLAlchemy). It
+would be simpler to operate, but the stack in the brief explicitly includes
+Java/Spring Boot, and the separation of "platform" and "math" is a defensible
+boundary rather than an artificial one.
+
+## 4. Core domain concepts
+
+| Concept | Meaning |
+|---------|---------|
+| **Monitored model** | A named model (e.g. `credit-risk`) with a task type (`binary_classification`, `multiclass_classification`, `regression`), a target column and a prediction column. |
+| **Dataset** | An uploaded CSV file with a role (`REFERENCE` or `CURRENT`), SHA-256 content hash, row count and inferred schema. |
+| **Feature schema** | Per-column name, logical type (`numeric`, `categorical`, `boolean`, `datetime`, `text`/unsupported), nullability. Inferred from the reference dataset, then *enforced* on current batches. |
+| **Reference profile** | A compact, deterministic summary of the reference dataset computed once by `analytics`: bin edges and proportions, category frequencies, missing rates and a capped seeded sample for tests that need raw values. Stored as JSONB. |
+| **Monitoring run** | One comparison of a current batch against a model's reference profile, with an immutable configuration (methods, thresholds, engine version). Status: `PENDING → RUNNING → SUCCEEDED / FAILED`. |
+| **Feature drift result** | Per-feature output of a run: method, statistic, p-value (where applicable), threshold, drift flag, sample sizes, warnings. |
+
+## 5. Main workflows
+
+### 5.1 Register a reference dataset
+
+1. Client `POST`s a CSV to `backend`.
+2. `backend` validates size/encoding, computes SHA-256, stores the file in the
+   file store (content-addressed: same file → same path), records metadata.
+3. `backend` sends the file to `analytics` `/v1/profile`.
+4. `analytics` infers the schema and builds the reference profile.
+5. `backend` persists schema + profile and marks the dataset `READY`
+   (or `FAILED` with the engine's error).
+
+### 5.2 Run drift monitoring on a current batch
+
+1. Client uploads a current CSV for a model.
+2. `backend` validates it against the stored schema (missing columns, extra
+   columns, type mismatches) and creates a `PENDING` run.
+3. A bounded background executor sends the profile + current batch to
+   `analytics` `/v1/drift`.
+4. Results are written in one transaction; the run becomes `SUCCEEDED`.
+   Any engine error, timeout or validation failure produces `FAILED` with a
+   recorded reason — never a silently partial result.
+
+### 5.3 Performance monitoring (Milestone 3)
+
+Ground-truth labels often arrive later than predictions. Labels are uploaded
+separately and joined to predictions by a client-supplied `record_id`.
+Performance metrics are computed only on the joined subset, and the join rate
+is reported alongside the metrics.
+
+## 6. Data model (initial sketch)
+
+```text
+monitored_model(id, name UNIQUE, task_type, target_column, prediction_column,
+                created_at)
+dataset(id, model_id FK, role, sha256, storage_path, row_count, byte_size,
+        status, schema JSONB, created_at)
+reference_profile(id, dataset_id FK UNIQUE, engine_version, profile JSONB,
+                  created_at)
+monitoring_run(id, model_id FK, reference_dataset_id FK, current_dataset_id FK,
+               status, config JSONB, engine_version, error_message,
+               created_at, started_at, finished_at)
+feature_drift_result(id, run_id FK, feature_name, feature_type, method,
+                     statistic, p_value, threshold, drift_detected,
+                     reference_count, current_count, missing_rate_ref,
+                     missing_rate_cur, warnings JSONB)
+```
+
+Schema migrations are managed with Flyway; tables are never modified by hand.
+
+## 7. API surface (planned, versioned under `/api/v1`)
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| `POST` | `/api/v1/models` | Register a model |
+| `GET`  | `/api/v1/models/{id}` | Get model details |
+| `POST` | `/api/v1/models/{id}/reference` | Upload reference dataset |
+| `POST` | `/api/v1/models/{id}/runs` | Upload current batch and start a run |
+| `GET`  | `/api/v1/runs/{runId}` | Run status and summary |
+| `GET`  | `/api/v1/runs/{runId}/features` | Per-feature drift results |
+
+Internal engine API (`analytics`, not exposed publicly):
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| `GET`  | `/health` | Liveness + engine version |
+| `POST` | `/v1/profile` | Infer schema and build a reference profile |
+| `POST` | `/v1/drift` | Compare a current batch to a profile |
+
+Errors use RFC 9457 *Problem Details* (`application/problem+json`) in
+`backend`. Exact request/response contracts are documented as each endpoint
+is implemented.
+
+## 8. Cross-cutting concerns
+
+- **Validation:** request validation at the API boundary (Bean Validation);
+  data validation (schema, types, missing values) in the engine, with
+  explicit warnings returned rather than rows silently dropped.
+- **Reproducibility:** each run stores its full config, engine version and
+  dataset hashes. Sampling uses fixed seeds. See
+  [ML_MONITORING_DESIGN.md §8](ML_MONITORING_DESIGN.md#8-reproducibility).
+- **Limits:** v1 caps uploads (initially 100 MB per file, configurable) because
+  whole batches are processed in memory.
+- **Configuration:** 12-factor style environment variables; no secrets in the
+  repository. `.env.example` will document required variables.
+- **Observability:** structured logs with a run ID; Spring Boot Actuator health
+  endpoints.
+- **Security (v1):** no authentication; intended for local or trusted-network
+  use. API-key auth is on the roadmap before any public deployment.
+
+## 9. Repository layout
+
+```text
+DriftWatch/
+├── analytics/      Python FastAPI statistical engine (stateless)
+├── backend/        Spring Boot API, persistence, orchestration
+├── frontend/       React + TypeScript dashboard
+├── .github/        CI workflows (added with the first code module)
+├── ARCHITECTURE.md
+├── ML_MONITORING_DESIGN.md
+├── DEVELOPMENT_ROADMAP.md
+├── DEVELOPMENT_LOG.md
+├── CHANGELOG.md
+├── CONTRIBUTING.md
+└── README.md
+```
+
+`docker-compose.yml` will be added at the root once at least two services can
+run together (Milestone 5 in the roadmap).
+
+## 10. Key decisions
+
+| # | Decision | Rationale | Status |
+|---|----------|-----------|--------|
+| D1 | Split into `backend` (Java) + stateless `analytics` (Python) | Mature statistics libraries in Python; platform concerns in Spring | Proposed |
+| D2 | Analytics engine is stateless | Testability, reproducibility, single source of truth | Proposed |
+| D3 | Reference data summarised into a stored *profile* | Avoid re-reading full reference data every run; deterministic bins | Proposed |
+| D4 | Batch (file upload) ingestion first, no streaming | Fits typical offline monitoring; avoids premature infrastructure | Proposed |
+| D5 | Uploaded files on a local volume, metadata in PostgreSQL | Simple; object storage (S3/MinIO) only if needed | Proposed |
+| D6 | Synchronous HTTP between services, no broker | One caller, one callee; a queue adds no value yet | Proposed |

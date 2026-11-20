@@ -1,0 +1,49 @@
+# --- OS / editors ---
+.DS_Store
+Thumbs.db
+.idea/
+*.iml
+.vscode/
+*.swp
+
+# --- Local tool configuration ---
+.mcp.json
+.claude/settings.local.json
+
+# --- Secrets / environment ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# --- Java / Maven ---
+target/
+*.class
+*.log
+hs_err_pid*
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.egg-info/
+dist/
+build/
+
+# --- Node / frontend ---
+node_modules/
+frontend/dist/
+coverage/
+*.tsbuildinfo
+
+# --- Data and runtime artefacts ---
+/data/
+*.parquet
+/storage/
