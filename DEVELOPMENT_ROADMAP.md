@@ -35,7 +35,7 @@ Depends on: nothing.
   the 30-row minimum: no-drift PSI at 50 rows per side gives 85% false
   alarms, and JS 71% (see the 1.5 and 1.6 log entries)
   - ✅ 1.7a Normalised Wasserstein distance (reported)
-  - ⏳ 1.7b Per-feature evaluation with data-quality flags
+  - ✅ 1.7b Per-feature evaluation with data-quality flags
   - ⏳ 1.7c Minimum-sample-size policy (needs maintainer approval)
 - ⏳ 1.8 `/v1/profile` and `/v1/drift` endpoints with request validation +
   API tests

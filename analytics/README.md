@@ -213,6 +213,25 @@ result.unseen_categories, result.reference_truncated
 non-finite input raises `ValueError`; minimum-sample-size handling comes
 with task 1.7.
 
+## Evaluating a batch (`drift.evaluate_batch`)
+
+The full pipeline for one current batch:
+
+```python
+from driftwatch_analytics.drift import DriftConfig, evaluate_batch
+
+report = validate_batch(read_csv_text(current_bytes), profile.dataset_schema)
+if report.is_valid:
+    for result in evaluate_batch(profile, report, DriftConfig()):
+        print(result.name, result.status, result.drift_detected, result.flags)
+```
+
+Each `FeatureDriftResult` holds the status, the drift verdict, data-quality
+flags, missing and invalid rates and the method-level result
+(`NumericDriftResult` or `CategoricalDriftResult`, or `None` when there is
+too little data). `min_valid_count` is currently 30, a placeholder pending
+the sample-size policy (roadmap task 1.7c).
+
 ## API
 
 | Method | Path | Response |

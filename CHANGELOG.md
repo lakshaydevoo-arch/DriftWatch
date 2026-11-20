@@ -32,3 +32,6 @@ first release.
 - `analytics`: categorical drift detection using Jensen–Shannon distance
   (drift flag) with a chi-square test reported alongside; rare categories
   are pooled for the test, and unseen categories are reported.
+- `analytics`: per-feature batch evaluation combining drift results with
+  data-quality flags (schema violation, missing-rate change, constant
+  reference feature, unseen categories) and an insufficient-data status.

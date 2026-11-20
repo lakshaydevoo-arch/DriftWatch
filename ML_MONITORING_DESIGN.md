@@ -257,6 +257,15 @@ values becomes categorical unless overridden; locale-specific numbers
 
 Rows are never dropped silently: every exclusion is counted and returned.
 
+**Per-feature result.** Each monitored feature gets one result with a
+`status` (`evaluated` or `insufficient_data`), a `drift_detected` verdict
+and a list of data-quality `flags` (`schema_violation`,
+`missing_rate_change`, `constant_in_reference`, `unseen_categories`).
+`drift_detected` reflects only the distribution of *valid* values; quality
+problems are flags, not drift. That keeps "the data pipeline broke" apart
+from "the world changed". Quality flags are reported even when there is too
+little data for a drift verdict.
+
 ## 8. Reproducibility
 
 A run must be reproducible from its stored inputs. Each run records:

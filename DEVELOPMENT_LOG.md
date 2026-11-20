@@ -7,6 +7,51 @@ following session's commit (or read with `git log`).
 
 ---
 
+## 2026-11-21 — Milestone 1.7b: per-feature evaluation with data-quality flags
+
+**Feature implemented**
+
+- `drift.evaluate_batch(profile, report, config)`: one `FeatureDriftResult`
+  per monitored feature, in schema order, combining validation, profile and
+  drift methods.
+- `FeatureStatus` (`evaluated`, `insufficient_data`) and `QualityFlag`
+  (`schema_violation`, `missing_rate_change` > 5 points, `constant_in_reference`,
+  `unseen_categories`). `drift_detected` covers distribution drift only.
+- `DriftConfig` groups the numeric and categorical configs,
+  `min_valid_count` (30, a placeholder for 1.7c) and `max_missing_rate_change`.
+- Rejects invalid reports and reports built from a different schema.
+
+**Files changed**
+
+- `analytics/src/driftwatch_analytics/drift/{evaluation,__init__}.py`
+- `analytics/tests/drift/test_evaluation.py`
+- `analytics/README.md`, `ML_MONITORING_DESIGN.md` (§7),
+  `DEVELOPMENT_ROADMAP.md`, `CHANGELOG.md`, `DEVELOPMENT_LOG.md`
+
+**Tests executed** (Python 3.13.15)
+
+- `pytest`: 239 passed (16 new), all end to end through CSV → schema →
+  profile → validation → evaluation: clean batch; drift attributed to exactly
+  the shifted features; 20% injected missing values flagged without drift;
+  4% not flagged; 10% unparseable values flagged; unseen category flagged;
+  insufficient data with quality flags still reported; configurable minimum;
+  constant reference; boolean feature; excluded columns; invalid and
+  mismatched reports rejected; JSON round trip; determinism.
+- `ruff format --check .`, `ruff check .`, `mypy` (strict): clean (one
+  mypy error from an untyped `**kwargs` construction fixed before commit).
+
+**Commit hash**
+
+- To be recorded in the next entry (see `git log`).
+
+**Remaining work**
+
+- 1.7c minimum-sample-size policy; awaiting maintainer decision.
+
+**Open decisions**: sample-size policy (1.7c); license (MIT vs Apache-2.0).
+
+---
+
 ## 2026-11-21 — Milestone 1.7a: normalised Wasserstein distance
 
 Task 1.7 is split into 1.7a (this), 1.7b (per-feature evaluation and
@@ -47,7 +92,7 @@ statistical policy decision that needs maintainer approval.
 
 **Commit hash**
 
-- `0df8853` (feature) + follow-up docs commit (see `git log`).
+- `0df8853` (feature) + `f50d149` (docs follow-up)
 
 **Remaining work**
 
