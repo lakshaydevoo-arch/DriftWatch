@@ -43,7 +43,9 @@ PSI = Σ_i (c_i − r_i) · ln(c_i / r_i)
   are open-ended (`-∞`, `+∞`) so current values outside the reference range
   are still counted. Duplicate edges (common for discrete or heavily tied
   features) are merged, so a feature may end up with fewer bins; the actual
-  bin count is reported.
+  bin count is reported. Bins are right-closed, `(e_i, e_{i+1}]`, and the same
+  binning code is used for the profile and for drift runs, so the two
+  histograms always line up.
 - **Zero proportions:** replaced by `ε = 1e-4` before the log to avoid
   infinities. This is a smoothing choice that slightly biases PSI for bins
   with very few observations.
@@ -210,8 +212,31 @@ The **reference profile** is deterministic:
 
 - quantile bin edges with a fixed interpolation method (`numpy.quantile`,
   `method="linear"`),
-- category counts sorted by value,
-- reference sample drawn with a fixed seed (default `42`, stored in config).
+- category counts sorted by value; when a feature has more than
+  `max_categories` values, the most frequent are kept (ties broken by value)
+  and the rest are summed into a separate `other_count`, which never collides
+  with a real category name,
+- reference sample drawn without replacement with a fixed seed (default `42`,
+  stored in config). Each feature gets its own random stream seeded with
+  `(seed, crc32(feature name))`, so adding or reordering columns does not
+  change another feature's sample. `crc32` is used because Python's `hash()`
+  of a string differs between processes.
+
+Profile contents per monitored feature: missing and invalid counts, and
+
+- numeric: count, mean, population standard deviation (`ddof=0`, defined
+  even for one value), min, max, constant flag, interior bin edges, bin counts
+  and the sorted sample;
+- categorical and boolean (stored as `"true"`/`"false"`): kept category
+  counts, `other_count` and the number of distinct values.
+
+The profile embeds the dataset schema and is re-validated when loaded
+(bins strictly increasing, counts adding up, features matching the schema),
+so a corrupted stored profile is rejected rather than silently used.
+
+**Size trade-off:** with the default 10,000-value sample a numeric feature
+takes about 180 KB of JSON. That is fine for tens of features; for very wide
+datasets `sample_size` should be lowered, at the cost of KS/Wasserstein power.
 
 Re-running the same profile + batch + config + engine version must produce
 identical results; this is enforced by tests.

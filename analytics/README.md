@@ -2,7 +2,8 @@
 
 **Status:** Milestone 1 in progress. Implemented: service scaffold with
 `/health` (1.1), the seeded synthetic data generator (1.2) and CSV loading
-with schema inference and batch validation (1.3). No drift statistics yet.
+with schema inference and batch validation (1.3), and reference profiles
+(1.4). No drift statistics yet.
 
 Stateless FastAPI service that infers schemas, builds reference profiles and
 computes drift and performance metrics. It has no database and no filesystem
@@ -29,7 +30,7 @@ analytics/
 | Package | Purpose |
 |---------|---------|
 | fastapi, uvicorn | HTTP API and ASGI server |
-| pydantic | Request/response validation |
+| pydantic | Request/response validation; reference profile model |
 | python-multipart | CSV upload handling |
 | pandas | CSV parsing, column handling |
 | numpy | Quantiles, binning, sampling |
@@ -148,15 +149,34 @@ parsed.values, parsed.n_missing, parsed.n_invalid
 from driftwatch_analytics.schema import validate_batch
 
 report = validate_batch(read_csv_text(current_bytes), schema)
-report.is_valid                       # False only if a monitored column is missing
+report.is_valid  # False only if a monitored column is missing
 [(i.code, i.column, i.severity) for i in report.issues]
-report.column("age").invalid_rate     # invalid / non-missing, None if undefined
-report.parsed["age"].values           # typed values for the drift stage
+report.column("age").invalid_rate  # invalid / non-missing, None if undefined
+report.parsed["age"].values  # typed values for the drift stage
 ```
 
 Rules, thresholds and limitations:
 [ML_MONITORING_DESIGN.md §7](../ML_MONITORING_DESIGN.md#7-data-validation-and-quality).
 Thresholds are configurable through `InferenceConfig`.
+
+## Reference profiles (`driftwatch_analytics.profiling`)
+
+```python
+from driftwatch_analytics.profiling import ProfileConfig, ReferenceProfile, build_reference_profile
+
+profile = build_reference_profile(text, schema, ProfileConfig(n_bins=10, sample_size=10_000, seed=42))
+stored = profile.model_dump_json()                       # what the backend persists
+profile = ReferenceProfile.model_validate_json(stored)   # re-validated on load
+```
+
+A profile records the engine and library versions, the config, the schema and,
+per monitored feature, either a `NumericProfile` (stats, quantile bins,
+sorted seeded sample) or a `CategoricalProfile` (category counts plus
+`other_count`). `binning.assign_bins` / `bin_counts` are the single
+implementation of the bin rule, to be reused by drift detection.
+
+Errors (`ProfileError`): data not matching the schema, zero rows, or a
+monitored column with no valid values (usually a wrong type override).
 
 ## API
 

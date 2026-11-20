@@ -23,3 +23,6 @@ first release.
 - `analytics`: batch validation against a schema with structured issues
   (missing/extra columns, schema violations, empty batch) and per-column
   missing and invalid rates.
+- `analytics`: deterministic reference profiles (quantile bins, category
+  counts, seeded per-feature samples) that serialise to JSON and are
+  re-validated when loaded.

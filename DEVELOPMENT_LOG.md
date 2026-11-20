@@ -7,6 +7,67 @@ following session's commit (or read with `git log`).
 
 ---
 
+## 2026-11-21 — Milestone 1.4: reference profile builder
+
+**Feature implemented**
+
+- `profiling.binning`: `quantile_edges`, `assign_bins`, `bin_counts`, the
+  single implementation of the right-closed quantile bin rule with open
+  outer bins and merged duplicate edges.
+- `profiling.models`: Pydantic `ReferenceProfile`, `NumericProfile`,
+  `CategoricalProfile`, `ProfileConfig`. Frozen, `extra="forbid"`, with
+  consistency validators so corrupted stored profiles are rejected on load.
+- `profiling.builder.build_reference_profile`: validates the reference
+  against its schema, then profiles each monitored column. Booleans are
+  stored as `"true"`/`"false"` categories; high cardinality is cut to the top
+  `max_categories` plus `other_count`; samples use a per-feature RNG seeded by
+  `(seed, crc32(name))`.
+- Declared `pydantic` as a direct dependency (it was only transitive via
+  FastAPI, but is now imported directly).
+
+**Files changed**
+
+- `analytics/src/driftwatch_analytics/profiling/{__init__,binning,models,builder}.py`
+- `analytics/tests/profiling/{__init__,test_binning,test_builder}.py`
+- `analytics/pyproject.toml`, `analytics/README.md`
+- `ML_MONITORING_DESIGN.md` (§3.1, §8), `ARCHITECTURE.md` (D2, D3 status),
+  `DEVELOPMENT_ROADMAP.md`, `CHANGELOG.md`, `DEVELOPMENT_LOG.md`
+
+**Tests executed** (Python 3.13.15)
+
+- `pytest`: 165 passed (40 new). Binning: equal-frequency bins, right-closed
+  boundaries, out-of-range values, ties, constant data, invalid input.
+  Builder: stats against pandas, sampling cap without replacement,
+  high-cardinality cut-off and tie-breaking, booleans, integer-coded
+  categories, constant columns, excluded columns. Determinism: equal
+  profiles for equal inputs, seed affects only the sample, a feature's
+  sample is independent of other columns, byte-identical JSON from two
+  separate Python processes. Load validation: JSON round trip plus 11
+  corrupted-profile cases, including an invalid embedded schema.
+- `ruff format --check .`, `ruff check .`, `mypy` (strict): clean.
+
+**Issues found and fixed during verification**
+
+- A boolean test used `"maybe"` in the reference, so inference (correctly)
+  did not infer boolean. The test was wrong; it now sets the type explicitly.
+- mypy: `PROFILE_FORMAT_VERSION` was inferred as `int`, not `Literal[1]`;
+  declared as `Final`.
+- A sampling assertion was too weak (an `or` made it near-vacuous); it now
+  checks the sample is distinct and drawn from the real values.
+
+**Commit hash**
+
+- To be recorded in the next entry (see `git log`).
+
+**Remaining work**
+
+- 1.5 numeric drift: PSI and KS, using `profiling.binning` and the stored
+  sample.
+
+**Open decisions**: license (MIT vs Apache-2.0).
+
+---
+
 ## 2026-11-21 — Milestone 1.3b: batch validation against a schema
 
 **Feature implemented**
@@ -40,7 +101,7 @@ following session's commit (or read with `git log`).
 
 **Commit hash**
 
-- To be recorded in the next entry (see `git log`).
+- `3eb1c86`
 
 **Remaining work**
 

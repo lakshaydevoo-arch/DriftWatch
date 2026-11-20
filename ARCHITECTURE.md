@@ -202,8 +202,8 @@ run together (Milestone 5 in the roadmap).
 | # | Decision | Rationale | Status |
 |---|----------|-----------|--------|
 | D1 | Split into `backend` (Java) + stateless `analytics` (Python) | Mature statistics libraries in Python; platform concerns in Spring | Proposed |
-| D2 | Analytics engine is stateless | Testability, reproducibility, single source of truth | Proposed |
-| D3 | Reference data summarised into a stored *profile* | Avoid re-reading full reference data every run; deterministic bins | Proposed |
+| D2 | Analytics engine is stateless | Testability, reproducibility, single source of truth | Implemented (engine side) |
+| D3 | Reference data summarised into a stored *profile* | Avoid re-reading full reference data every run; deterministic bins | Implemented (engine side) |
 | D4 | Batch (file upload) ingestion first, no streaming | Fits typical offline monitoring; avoids premature infrastructure | Proposed |
 | D5 | Uploaded files on a local volume, metadata in PostgreSQL | Simple; object storage (S3/MinIO) only if needed | Proposed |
 | D6 | Synchronous HTTP between services, no broker | One caller, one callee; a queue adds no value yet | Proposed |

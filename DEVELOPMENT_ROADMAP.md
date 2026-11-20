@@ -25,7 +25,7 @@ Depends on: nothing.
 - ✅ 1.3 Schema inference and validation (types, missing, invalid values)
   - ✅ 1.3a Strict CSV reading, value parsing, schema inference
   - ✅ 1.3b Validate current batches against a schema
-- ⏳ 1.4 Reference profile builder (quantile bins, category counts, seeded
+- ✅ 1.4 Reference profile builder (quantile bins, category counts, seeded
   sample) + determinism tests
 - ⏳ 1.5 Numeric drift: PSI and KS
 - ⏳ 1.6 Categorical drift: Jensen–Shannon and chi-square (rare-category
