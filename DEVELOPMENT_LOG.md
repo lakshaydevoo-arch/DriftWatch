@@ -7,6 +7,73 @@ following session's commit (or read with `git log`).
 
 ---
 
+## 2026-11-21 — Milestone 1.7c: sample-size-aware noise floor
+
+**Decision (approved by maintainer):** noise floor rather than a fixed
+minimum batch size. Options and simulations were presented first; the fixed
+minimum was rejected because it gives no verdict on small batches even when
+drift is obvious.
+
+**Feature implemented**
+
+- `drift.noise.noise_floor`: seeded parametric bootstrap. Draws 500 pairs of
+  reference and current histograms from the reference proportions at the
+  real sample sizes and returns the 99th percentile of the statistic.
+- PSI and JS now flag only above `effective_threshold = max(threshold,
+  noise_floor)`. Results gained `noise_floor` and `effective_threshold`.
+  `NoiseFloorConfig` (quantile, simulations, seed) is part of both method
+  configs; `noise_floor=None` restores the fixed threshold.
+- Vectorised PSI helper (`_psi_rows`) and JS helper (`_js_rows`) so the
+  simulations are fast (~1 ms per feature).
+- `scripts/sample_size_policy.py`: reproduces the policy table using the
+  project's own drift functions; `scripts/` added to the mypy targets.
+
+**Files changed**
+
+- `analytics/src/driftwatch_analytics/drift/{noise,models,numeric,categorical,evaluation,__init__}.py`
+- `analytics/tests/drift/{test_noise_floor,test_numeric}.py`
+- `analytics/scripts/sample_size_policy.py`, `analytics/pyproject.toml`
+- `analytics/README.md`, `ML_MONITORING_DESIGN.md` (new §3.4; §3.1, §4.1,
+  §7 updated), `DEVELOPMENT_ROADMAP.md`, `CHANGELOG.md`, `DEVELOPMENT_LOG.md`
+
+**Tests executed** (Python 3.13.15)
+
+- `pytest`: 261 passed (22 new). The floor shrinks as the batch grows;
+  large batches use the fixed threshold; small batches raise it;
+  determinism; constant reference; disabling the floor. **False alarms over
+  300 seeded no-drift trials at 30/50/100 rows**: measured PSI 2, 4 and 3
+  out of 300 and JS 5, 3 and 3 out of 300 (bound: ≤ 9, the 99.9% binomial
+  limit for a 1% rate); the fixed threshold flags over 30% at 30–50 rows.
+  **Power**: a 1 sd shift is detected in ≥ 70% / 95% / 99% of trials at
+  50 / 100 / 500 rows; a strong category shift in ≥ 90% at 50 rows; a
+  0.5 sd shift at 2,000 rows has the same verdict with and without the floor.
+- All 239 existing tests passed unchanged with the floor enabled.
+- `scripts/sample_size_policy.py` (200 trials, fresh reference per trial):
+  no-drift false alarms 0–2% at all sizes vs. 44–72% fixed at 30–50 rows;
+  table copied into the design doc §3.4.
+- `ruff format --check .`, `ruff check .`, `mypy` (strict, now including
+  `scripts/`): clean.
+
+**Limitations recorded**
+
+- Slightly above 1% (about 2%) at 30–50 rows, because the multinomial
+  model ignores noise in the estimated bin edges.
+- Small batches can only reveal large changes (0.5 sd shift caught 28% of
+  the time at 50 rows).
+
+**Commit hash**
+
+- To be recorded in the next entry (see `git log`).
+
+**Remaining work**
+
+- 1.8 `/v1/profile` and `/v1/drift` endpoints with request validation and
+  API tests.
+
+**Open decisions**: license (MIT vs Apache-2.0).
+
+---
+
 ## 2026-11-21 — Milestone 1.7b: per-feature evaluation with data-quality flags
 
 **Feature implemented**
@@ -42,7 +109,7 @@ following session's commit (or read with `git log`).
 
 **Commit hash**
 
-- To be recorded in the next entry (see `git log`).
+- `25ac76b`
 
 **Remaining work**
 

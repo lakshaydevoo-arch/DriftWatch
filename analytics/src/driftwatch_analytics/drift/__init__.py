@@ -11,6 +11,7 @@ from driftwatch_analytics.drift.evaluation import (
 from driftwatch_analytics.drift.models import (
     CategoricalDriftConfig,
     CategoricalDriftResult,
+    NoiseFloorConfig,
     NumericDriftConfig,
     NumericDriftResult,
 )
@@ -22,6 +23,7 @@ __all__ = [
     "DriftConfig",
     "FeatureDriftResult",
     "FeatureStatus",
+    "NoiseFloorConfig",
     "NumericDriftConfig",
     "NumericDriftResult",
     "QualityFlag",

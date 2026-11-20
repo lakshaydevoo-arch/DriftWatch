@@ -52,9 +52,9 @@ class _Frozen(BaseModel):
 class DriftConfig(_Frozen):
     numeric: NumericDriftConfig = NumericDriftConfig()
     categorical: CategoricalDriftConfig = CategoricalDriftConfig()
-    # Placeholder from the original design. Simulations show it is too low
-    # for PSI and JS (see ML_MONITORING_DESIGN.md sections 3.1 and 4.1); the
-    # minimum-sample-size policy is task 1.7c.
+    # Below this, no drift verdict at all. Above it, the per-method noise
+    # floor (ML_MONITORING_DESIGN.md section 3.4) keeps small batches from
+    # producing false alarms.
     min_valid_count: int = Field(default=30, ge=1)
     max_missing_rate_change: float = Field(default=0.05, ge=0, le=1)
 

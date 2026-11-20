@@ -70,7 +70,7 @@ Interactive API docs: <http://localhost:8000/docs>.
 pytest                 # tests; warnings are treated as errors
 ruff format --check .  # formatting
 ruff check .           # linting
-mypy                   # strict type checking of src/ and tests/
+mypy                   # strict type checking of src/, tests/ and scripts/
 ```
 
 ## Synthetic data (`driftwatch_analytics.synthetic`)
@@ -210,8 +210,10 @@ result.unseen_categories, result.reference_truncated
 
 `current_valid_values` must exclude missing and invalid values (use
 `report.parsed[name].values.dropna()` from `validate_batch`). Empty or
-non-finite input raises `ValueError`; minimum-sample-size handling comes
-with task 1.7.
+non-finite input raises `ValueError`. On small batches the flag uses
+`effective_threshold = max(threshold, noise_floor)` (see
+[§3.4](../ML_MONITORING_DESIGN.md#34-sample-size-aware-noise-floor-psi-and-jensenshannon));
+both values are in the result.
 
 ## Evaluating a batch (`drift.evaluate_batch`)
 
@@ -229,8 +231,15 @@ if report.is_valid:
 Each `FeatureDriftResult` holds the status, the drift verdict, data-quality
 flags, missing and invalid rates and the method-level result
 (`NumericDriftResult` or `CategoricalDriftResult`, or `None` when there is
-too little data). `min_valid_count` is currently 30, a placeholder pending
-the sample-size policy (roadmap task 1.7c).
+too little data). Features with fewer than `min_valid_count` (30) valid
+values get `insufficient_data`; above that, the noise floor keeps small
+batches from raising false alarms.
+
+## Scripts
+
+```bash
+python scripts/sample_size_policy.py   # reproduces the noise-floor table in the design doc
+```
 
 ## API
 

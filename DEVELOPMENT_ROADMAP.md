@@ -30,13 +30,13 @@ Depends on: nothing.
 - ✅ 1.5 Numeric drift: PSI and KS
 - ✅ 1.6 Categorical drift: Jensen–Shannon and chi-square (rare-category
   grouping, unseen categories)
-- 🔄 1.7 Wasserstein (normalised) and data-quality flags
+- ✅ 1.7 Wasserstein (normalised) and data-quality flags
   (missing-rate change, insufficient data, constant features). Must revisit
   the 30-row minimum: no-drift PSI at 50 rows per side gives 85% false
   alarms, and JS 71% (see the 1.5 and 1.6 log entries)
   - ✅ 1.7a Normalised Wasserstein distance (reported)
   - ✅ 1.7b Per-feature evaluation with data-quality flags
-  - ⏳ 1.7c Minimum-sample-size policy (needs maintainer approval)
+  - ✅ 1.7c Sample-size-aware noise floor (approved by maintainer)
 - ⏳ 1.8 `/v1/profile` and `/v1/drift` endpoints with request validation +
   API tests
 - ⏳ 1.9 False-positive-rate tests on no-drift controls; real-data tests on

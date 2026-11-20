@@ -12,6 +12,7 @@ from scipy.spatial.distance import jensenshannon
 from scipy.stats import chi2_contingency
 
 from driftwatch_analytics.drift.models import CategoricalDriftConfig, CategoricalDriftResult
+from driftwatch_analytics.drift.noise import noise_floor
 from driftwatch_analytics.profiling.models import CategoricalProfile
 
 # Bucket key for "categories not tracked individually".
@@ -76,6 +77,15 @@ def pool_rare_buckets(counts: npt.NDArray[np.int64], min_expected: float) -> lis
     return groups
 
 
+def _js_rows(
+    reference: npt.NDArray[np.float64], current: npt.NDArray[np.float64]
+) -> npt.NDArray[np.float64]:
+    result: npt.NDArray[np.float64] = np.clip(
+        jensenshannon(reference, current, base=2, axis=1), 0.0, 1.0
+    )
+    return result
+
+
 def categorical_drift(
     reference: CategoricalProfile,
     current: Iterable[str],
@@ -105,6 +115,14 @@ def categorical_drift(
 
     js = float(jensenshannon(ref_p, cur_p, base=2))
     js = min(max(js, 0.0), 1.0)  # guard against floating-point excursions
+    # Under no drift, current values come from the reference buckets only, so
+    # unseen-category buckets (reference probability 0) never get mass.
+    floor = (
+        noise_floor(_js_rows, ref_p, int(ref_counts.sum()), len(labels_in), config.noise_floor)
+        if config.noise_floor is not None
+        else None
+    )
+    effective = max(config.js_threshold, floor) if floor is not None else config.js_threshold
 
     warnings: list[str] = []
     chi2_statistic: float | None = None
@@ -131,7 +149,9 @@ def categorical_drift(
     return CategoricalDriftResult(
         js_distance=js,
         threshold=config.js_threshold,
-        drift_detected=js > config.js_threshold,
+        noise_floor=floor,
+        effective_threshold=effective,
+        drift_detected=js > effective,
         chi2_statistic=chi2_statistic,
         chi2_p_value=chi2_p_value,
         chi2_dof=chi2_dof,

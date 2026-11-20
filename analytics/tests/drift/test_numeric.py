@@ -1,4 +1,5 @@
 import math
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -259,7 +260,7 @@ def test_invalid_current_values_are_rejected(
 @pytest.mark.parametrize(
     "kwargs", [{"psi_threshold": 0.0}, {"psi_epsilon": 0.0}, {"psi_epsilon": 0.5}]
 )
-def test_invalid_config_is_rejected(kwargs: dict[str, float]) -> None:
+def test_invalid_config_is_rejected(kwargs: dict[str, Any]) -> None:
     with pytest.raises(ValidationError):
         NumericDriftConfig(**kwargs)
 

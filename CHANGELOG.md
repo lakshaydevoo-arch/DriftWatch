@@ -35,3 +35,6 @@ first release.
 - `analytics`: per-feature batch evaluation combining drift results with
   data-quality flags (schema violation, missing-rate change, constant
   reference feature, unseen categories) and an insufficient-data status.
+- `analytics`: sample-size-aware noise floor for PSI and Jensen–Shannon. Drift
+  is flagged only above `max(threshold, 99th percentile of no-drift noise)`,
+  which keeps false alarms on small batches at about 1–2%.

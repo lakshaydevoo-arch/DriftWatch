@@ -68,8 +68,8 @@ biased upward.
   samples it is much worse, because some bins end up empty and the ε term
   inflates PSI. A simulation of 2,000 no-drift trials with 50 rows on each
   side gave a mean PSI of 0.48, and **85% of batches were falsely flagged**
-  at 0.2. The minimum of 30 rows in §7 is therefore not enough for PSI. Task
-  1.7 must raise it or make the threshold depend on sample size.
+  at 0.2. A fixed threshold is therefore not safe for small batches; this is
+  handled by the noise floor (§3.4).
 - For normal data, a mean shift of `d` standard deviations gives
   `PSI ≈ d²`. The default threshold of 0.2 therefore flags shifts of about
   0.45 standard deviations or more.
@@ -111,6 +111,73 @@ needs its own small-sample calibration. It is undefined when the reference
 standard deviation is 0 (returned as `null`; the feature is flagged
 `CONSTANT_IN_REFERENCE`, §7).
 
+### 3.4 Sample-size-aware noise floor (PSI and Jensen–Shannon)
+
+**Problem.** PSI and JS distance are biased upward on small samples, so a
+fixed threshold produces false alarms on small batches even when nothing has
+changed (§3.1, §4.1). A fixed minimum batch size (e.g. 200 rows) would avoid
+that, but it would also refuse to judge small batches that show obvious drift.
+
+**Rule.** A feature is flagged only if its statistic exceeds
+
+```
+effective_threshold = max(threshold, noise_floor)
+```
+
+where `noise_floor` is the 99th percentile of the statistic under *no drift*
+at the actual sample sizes. It is estimated by drawing 500 pairs of reference
+and current histograms as multinomials from the reference proportions, with
+the real `n_ref` and `n_cur`, and computing the statistic for each pair.
+Both sides are simulated, so the noise in the reference estimate is included.
+
+- The simulation is seeded from the config and the sample sizes, so the same
+  inputs always give the same floor (tested).
+- For large batches the floor is far below the fixed threshold and changes
+  nothing (tested): the familiar thresholds keep their meaning.
+- Results report `threshold`, `noise_floor` and `effective_threshold`, so it
+  is visible *why* a small batch was not flagged.
+- Configurable through `NoiseFloorConfig` (quantile, simulations, seed);
+  `noise_floor=None` restores the fixed threshold.
+- A hard minimum of 30 valid values (`min_valid_count`) still applies,
+  below which no verdict is given (`INSUFFICIENT_DATA`).
+
+**Measured effect** (`analytics/scripts/sample_size_policy.py`, 200 trials
+per cell, fresh 5,000-row reference each trial, seed 2026):
+
+PSI: share of batches flagged (fixed threshold -> with noise floor)
+| Rows | no drift | 0.5 sd shift | 1 sd shift |
+|---|---|---|---|
+| 30 | 72% -> 2% | 97% -> 9% | 100% -> 76% |
+| 50 | 47% -> 2% | 93% -> 28% | 100% -> 93% |
+| 100 | 5% -> 1% | 88% -> 74% | 100% -> 100% |
+| 200 | 0% -> 0% | 90% -> 90% | 100% -> 100% |
+| 500 | 0% -> 0% | 90% -> 90% | 100% -> 100% |
+| 1000 | 0% -> 0% | 93% -> 93% | 100% -> 100% |
+
+JS: share of batches flagged (fixed threshold -> with noise floor)
+| Rows | no drift | mild shift | strong shift |
+|---|---|---|---|
+| 30 | 66% -> 2% | 88% -> 11% | 100% -> 87% |
+| 50 | 44% -> 1% | 86% -> 20% | 100% -> 98% |
+| 100 | 20% -> 0% | 80% -> 37% | 100% -> 100% |
+| 200 | 2% -> 2% | 84% -> 82% | 100% -> 100% |
+| 500 | 0% -> 0% | 88% -> 88% | 100% -> 100% |
+| 1000 | 0% -> 0% | 94% -> 94% | 100% -> 100% |
+
+**Trade-offs and limitations**
+
+- False alarms stay at about 1–2%, against 44–72% for the fixed threshold at
+  30–50 rows. They come out slightly above the nominal 1% at the smallest
+  sizes, because the multinomial model ignores the extra noise from
+  estimating quantile bin edges.
+- Small batches can only reveal large changes. At 50 rows a 1 sd shift is
+  caught 93% of the time but a 0.5 sd shift only 28%; this is the honest
+  limit of the data, not a defect of the rule.
+- About 1 ms of extra compute per feature (500 vectorised simulations).
+- The 0.5 sd shift is caught only ~90% of the time even at 1,000 rows,
+  because its PSI (≈ 0.25) is close to the 0.2 threshold. That is a property
+  of the threshold, not of the noise floor.
+
 ## 4. Categorical features
 
 Categories are compared as strings after trimming whitespace. Case is
@@ -142,8 +209,8 @@ In 2,000 no-drift simulations with 4 categories the false-alarm rate at the
 | Mean JS | 0.18 | 0.14 | 0.10 | 0.07 | 0.04 | 0.03 |
 | False alarms | 85% | 71% | 44% | 14% | 0.6% | 0% |
 
-The bias also grows with the number of categories. Task 1.7 handles the
-minimum sample size for both PSI and JS.
+The bias also grows with the number of categories. The noise floor (§3.4)
+corrects for it.
 
 ### 4.2 Chi-square test of homogeneity — reported alongside
 
@@ -215,7 +282,7 @@ Validation happens *before* any statistics are computed.
 | Batch with zero rows | Valid with a warning; every feature ends up `INSUFFICIENT_DATA` |
 | Missing values (`NaN`, empty string, `null`) | Excluded from distribution tests; missing rate reported for both sides |
 | Missing-rate change | Separate flag when absolute change > 0.05 (configurable) |
-| Fewer than 30 non-missing current values | Feature marked `INSUFFICIENT_DATA`; no drift verdict |
+| Fewer than 30 valid current values | Feature marked `INSUFFICIENT_DATA`; no drift verdict. Between 30 and a few hundred, the noise floor (§3.4) raises the threshold |
 | Constant feature in reference | Marked `CONSTANT_IN_REFERENCE`; PSI/JS still computed, Wasserstein skipped |
 | Datetime columns | Inferred as `datetime`, excluded in v1 (`DATETIME_NOT_SUPPORTED`) |
 | Free-text columns | Treated as categorical; excluded if they look like identifiers (§4.3) |
