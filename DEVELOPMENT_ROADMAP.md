@@ -20,7 +20,7 @@ Depends on: nothing.
 
 - ✅ 1.1 Project scaffold: `pyproject.toml`, FastAPI app with `/health`,
   pytest, ruff (lint + format), mypy
-- ⏳ 1.2 Seeded synthetic dataset generator with drift injection
+- ✅ 1.2 Seeded synthetic dataset generator with drift injection
   (mean shift, variance change, category shift, missing values)
 - ⏳ 1.3 Schema inference and validation (types, missing, invalid values)
 - ⏳ 1.4 Reference profile builder (quantile bins, category counts, seeded

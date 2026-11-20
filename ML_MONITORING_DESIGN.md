@@ -214,5 +214,7 @@ Every method gets tests on data where the right answer is known:
 - **Edge cases:** empty batches, all-missing columns, constant columns, a
   single category, unseen categories, unparseable values.
 
-All synthetic generators live in the repository and take an explicit seed, so
-test data is reproducible and nothing is hardcoded.
+All synthetic generators live in the repository
+(`analytics/src/driftwatch_analytics/synthetic/`) and take an explicit seeded
+`numpy.random.Generator`, so test data is reproducible and nothing is
+hardcoded.

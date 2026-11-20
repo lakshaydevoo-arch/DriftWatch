@@ -14,3 +14,6 @@ first release.
 - Repository structure for `analytics`, `backend` and `frontend` modules.
 - `analytics`: FastAPI service scaffold with a `GET /health` endpoint that
   reports the engine version.
+- `analytics`: seeded synthetic dataset generator with drift injection
+  (mean shift, spread change, category shift incl. unseen categories,
+  missing values).

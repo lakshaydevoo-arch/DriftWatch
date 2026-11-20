@@ -1,7 +1,8 @@
 # analytics — statistical engine
 
-**Status:** scaffold only (Milestone 1, task 1.1). The service starts and
-serves `/health`; no statistics are implemented yet.
+**Status:** Milestone 1 in progress. Implemented: service scaffold with
+`/health` (1.1) and the seeded synthetic data generator (1.2). No drift
+statistics yet.
 
 Stateless FastAPI service that infers schemas, builds reference profiles and
 computes drift and performance metrics. It has no database and no filesystem
@@ -38,8 +39,9 @@ analytics/
 | ruff, mypy | Linting/formatting and type checking (dev only) |
 
 Only packages that the code currently imports are declared in
-[`pyproject.toml`](pyproject.toml); Pandas, NumPy, SciPy and scikit-learn are
-added by the tasks that first need them. Python 3.12+.
+[`pyproject.toml`](pyproject.toml); SciPy and scikit-learn are added by the
+tasks that first need them. `pandas-stubs` is a dev dependency so strict mypy
+can type-check pandas code. Python 3.12+.
 
 ## Local setup
 
@@ -68,6 +70,48 @@ ruff format --check .  # formatting
 ruff check .           # linting
 mypy                   # strict type checking of src/ and tests/
 ```
+
+## Synthetic data (`driftwatch_analytics.synthetic`)
+
+Generates datasets where the "right answer" for drift is known, for testing
+the drift methods. Every function takes an explicit
+`numpy.random.Generator`, so the same seed always gives the same data.
+
+```python
+import numpy as np
+from driftwatch_analytics.synthetic import (
+    LOAN_APPLICANT_FEATURES, generate_dataset,
+    shift_mean, scale_std, resample_categories, inject_missing,
+)
+
+rng = np.random.default_rng(42)
+reference = generate_dataset(LOAN_APPLICANT_FEATURES, 10_000, rng)
+
+current = shift_mean(reference, "age", 5.0)                     # location shift
+current = scale_std(current, "credit_score", 1.5)               # spread change
+current = resample_categories(                                  # category shift,
+    current, "employment",                                      # incl. an unseen
+    ("salaried", "self_employed", "unemployed", "student"),     # category
+    (0.5, 0.2, 0.2, 0.1), rng,
+)
+current = inject_missing(current, "income", 0.1, rng)           # missing values
+```
+
+| Function | Effect |
+|----------|--------|
+| `generate_dataset(specs, n_rows, rng)` | Independent columns from `NormalFeature`, `LogNormalFeature` or `CategoricalFeature` specs |
+| `shift_mean(df, col, delta)` | Adds `delta` to a numeric column |
+| `scale_std(df, col, factor)` | Multiplies spread by `factor`, keeps the mean |
+| `resample_categories(df, col, categories, probabilities, rng)` | Redraws non-missing values from a new distribution; new categories allowed |
+| `inject_missing(df, col, rate, rng)` | Sets exactly `round(rate * n_rows)` random rows to missing |
+
+Injectors return copies and never mutate their input. Invalid arguments
+(unknown column, non-numeric column, probabilities not summing to 1, rate
+outside [0, 1], non-finite values) raise errors instead of being clamped.
+
+**Limitations:** features are independent (no correlations), and the
+generator produces only clean data. Messy inputs such as unparseable numbers
+are built explicitly in the tests that need them.
 
 ## API
 

@@ -8,11 +8,13 @@ version = "0.1.0.dev0"
 description = "Stateless statistical engine for DriftWatch drift and performance monitoring"
 readme = "README.md"
 requires-python = ">=3.12"
-# Only dependencies that the code actually imports are listed. Pandas, NumPy,
-# SciPy and scikit-learn are added in the tasks that first use them.
+# Only dependencies that the code actually imports are listed. SciPy and
+# scikit-learn are added in the tasks that first use them.
 dependencies = [
     "fastapi~=0.165",
     "uvicorn~=0.54",
+    "numpy~=2.5",
+    "pandas~=3.1",
 ]
 
 [project.optional-dependencies]
@@ -21,6 +23,7 @@ dev = [
     "httpx2~=2.16",  # Starlette TestClient transport
     "ruff~=0.17.6",
     "mypy~=2.4",
+    "pandas-stubs~=3.1.0",
 ]
 
 [tool.setuptools.packages.find]
