@@ -189,6 +189,7 @@ from driftwatch_analytics.drift import NumericDriftConfig, numeric_drift
 result = numeric_drift(profile.features["age"], current_valid_values)
 result.psi, result.drift_detected  # PSI is the primary method (threshold 0.2)
 result.ks_statistic, result.ks_p_value  # reported, does not set the flag
+result.wasserstein_normalized  # reported; distance in reference sds (None if constant)
 result.reference_proportions, result.current_proportions  # per bin, for charts
 ```
 

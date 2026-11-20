@@ -27,7 +27,8 @@ first release.
   counts, seeded per-feature samples) that serialise to JSON and are
   re-validated when loaded.
 - `analytics`: numeric drift detection using PSI on the profile's quantile
-  bins (drift flag) with a two-sample KS test reported alongside.
+  bins (drift flag) with a two-sample KS test and normalised Wasserstein
+  distance reported alongside.
 - `analytics`: categorical drift detection using Jensen–Shannon distance
   (drift flag) with a chi-square test reported alongside; rare categories
   are pooled for the test, and unseen categories are reported.

@@ -7,6 +7,57 @@ following session's commit (or read with `git log`).
 
 ---
 
+## 2026-11-21 — Milestone 1.7a: normalised Wasserstein distance
+
+Task 1.7 is split into 1.7a (this), 1.7b (per-feature evaluation and
+data-quality flags) and 1.7c (minimum-sample-size policy), because 1.7c is a
+statistical policy decision that needs maintainer approval.
+
+**Feature implemented**
+
+- `NumericDriftResult.wasserstein_normalized`: Wasserstein-1 distance between
+  the profile sample and the current values, divided by the reference sd.
+  `None` for a constant reference. Reported only.
+
+**Files changed**
+
+- `0df8853`: `analytics/src/driftwatch_analytics/drift/{models,numeric}.py`,
+  `analytics/tests/drift/test_numeric.py`, `ML_MONITORING_DESIGN.md` (§3.3),
+  `analytics/README.md` (whitespace only, see below)
+- Follow-up docs commit: `analytics/README.md`, `CHANGELOG.md`,
+  `DEVELOPMENT_ROADMAP.md`, `DEVELOPMENT_LOG.md`
+
+**Tests executed** (Python 3.13.15)
+
+- `pytest`: 223 passed (6 new): equals the shift in reference sds for shifts
+  0 to 2; unchanged under rescaling (×1000); matches SciPy; `None` for a
+  constant reference.
+- `ruff format --check .`, `ruff check .`, `mypy` (strict): clean.
+
+**Process issue (my mistake)**
+
+- The documentation script failed partway because `ruff format` also
+  reformats Python code blocks inside `analytics/README.md`, so an exact-text
+  edit did not match. The shell steps were not chained to stop on failure,
+  so `0df8853` was committed with the code, tests and design doc but without
+  the README, changelog, roadmap and log updates; it also contains ruff's
+  whitespace-only re-alignment of README code comments. Existing commits are
+  not amended, so the missing documentation is added in a separate `docs:`
+  commit. Fix going forward: commit scripts run with `set -e`.
+
+**Commit hash**
+
+- `0df8853` (feature) + follow-up docs commit (see `git log`).
+
+**Remaining work**
+
+- 1.7b per-feature evaluation with data-quality flags.
+- 1.7c minimum-sample-size policy.
+
+**Open decisions**: license (MIT vs Apache-2.0).
+
+---
+
 ## 2026-11-21 — Milestone 1.6: categorical drift (Jensen–Shannon and chi-square)
 
 **Feature implemented**
@@ -65,7 +116,7 @@ following session's commit (or read with `git log`).
 
 **Commit hash**
 
-- To be recorded in the next entry (see `git log`).
+- `16d48c6`
 
 **Remaining work**
 
