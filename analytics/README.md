@@ -1,8 +1,8 @@
 # analytics — statistical engine
 
 **Status:** Milestone 1 in progress. Implemented: service scaffold with
-`/health` (1.1) and the seeded synthetic data generator (1.2). No drift
-statistics yet.
+`/health` (1.1), the seeded synthetic data generator (1.2) and CSV loading
+with schema inference (1.3a). No drift statistics yet.
 
 Stateless FastAPI service that infers schemas, builds reference profiles and
 computes drift and performance metrics. It has no database and no filesystem
@@ -80,21 +80,27 @@ the drift methods. Every function takes an explicit
 ```python
 import numpy as np
 from driftwatch_analytics.synthetic import (
-    LOAN_APPLICANT_FEATURES, generate_dataset,
-    shift_mean, scale_std, resample_categories, inject_missing,
+    LOAN_APPLICANT_FEATURES,
+    generate_dataset,
+    shift_mean,
+    scale_std,
+    resample_categories,
+    inject_missing,
 )
 
 rng = np.random.default_rng(42)
 reference = generate_dataset(LOAN_APPLICANT_FEATURES, 10_000, rng)
 
-current = shift_mean(reference, "age", 5.0)                     # location shift
-current = scale_std(current, "credit_score", 1.5)               # spread change
-current = resample_categories(                                  # category shift,
-    current, "employment",                                      # incl. an unseen
-    ("salaried", "self_employed", "unemployed", "student"),     # category
-    (0.5, 0.2, 0.2, 0.1), rng,
+current = shift_mean(reference, "age", 5.0)  # location shift
+current = scale_std(current, "credit_score", 1.5)  # spread change
+current = resample_categories(  # category shift,
+    current,
+    "employment",  # incl. an unseen
+    ("salaried", "self_employed", "unemployed", "student"),  # category
+    (0.5, 0.2, 0.2, 0.1),
+    rng,
 )
-current = inject_missing(current, "income", 0.1, rng)           # missing values
+current = inject_missing(current, "income", 0.1, rng)  # missing values
 ```
 
 | Function | Effect |
@@ -112,6 +118,34 @@ outside [0, 1], non-finite values) raise errors instead of being clamped.
 **Limitations:** features are independent (no correlations), and the
 generator produces only clean data. Messy inputs such as unparseable numbers
 are built explicitly in the tests that need them.
+
+## Schema inference (`driftwatch_analytics.schema`)
+
+```python
+from driftwatch_analytics.schema import LogicalType, infer_schema, parse_column, read_csv_text
+
+text = read_csv_text(open("reference.csv", "rb").read())   # all cells as strings
+schema = infer_schema(
+    text,
+    overrides={"zip_code": LogicalType.CATEGORICAL},        # optional corrections
+    exclude=["customer_id"],
+)
+for column in schema.columns:
+    print(column.name, column.logical_type, column.excluded)
+
+parsed = parse_column(text["income"], LogicalType.NUMERIC)
+parsed.values, parsed.n_missing, parsed.n_invalid
+```
+
+| Piece | Responsibility |
+|-------|----------------|
+| `read_csv_text` | Strict UTF-8 CSV reading; rejects blank or duplicate headers and rows with the wrong field count (`CsvFormatError`) |
+| `parse_column` | Text → typed values, with separate *missing* and *invalid* masks |
+| `infer_schema` | Logical type per column (`numeric`, `categorical`, `boolean`, `datetime`, `unknown`) plus an exclusion reason where needed |
+
+Rules, thresholds and limitations:
+[ML_MONITORING_DESIGN.md §7](../ML_MONITORING_DESIGN.md#7-data-validation-and-quality).
+Thresholds are configurable through `InferenceConfig`.
 
 ## API
 

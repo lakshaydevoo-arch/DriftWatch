@@ -108,8 +108,9 @@ counts.
 
 Features with more than 100 distinct reference values (configurable) are kept
 as the top 100 categories by reference frequency plus `__other__`. Features
-that look like identifiers (distinct ratio > 0.9) are flagged
-`LIKELY_IDENTIFIER` and excluded from drift by default.
+that look like identifiers (text columns with at least 50 non-missing values
+and distinct ratio > 0.9) are flagged `LIKELY_IDENTIFIER` during schema
+inference (§7) and excluded from drift by default.
 
 ## 5. Prediction drift
 
@@ -154,12 +155,43 @@ Validation happens *before* any statistics are computed.
 | Missing-rate change | Separate flag when absolute change > 0.05 (configurable) |
 | Fewer than 30 non-missing current values | Feature marked `INSUFFICIENT_DATA`; no drift verdict |
 | Constant feature in reference | Marked `CONSTANT_IN_REFERENCE`; PSI/JS still computed, Wasserstein skipped |
-| Datetime / free text columns | Inferred as unsupported in v1, excluded with a warning |
+| Datetime columns | Inferred as `datetime`, excluded in v1 (`DATETIME_NOT_SUPPORTED`) |
+| Free-text columns | Treated as categorical; excluded if they look like identifiers (§4.3) |
 
-**Schema inference** (on the reference dataset): a column is numeric if
-≥ 95% of non-missing values parse as numbers; boolean if values are a subset
-of {true, false, 0, 1, yes, no}; numeric columns with ≤ 10 distinct integer
-values are treated as categorical. Users can override inferred types.
+**Reading CSV.** Files must be UTF-8 (a byte-order mark is allowed) with a
+header row. Blank or duplicate column names and rows with the wrong number
+of fields are rejected: the common CSV libraries silently pad or rename them,
+which would hide broken input. All cells are read as text, and DriftWatch
+does the type parsing itself so it can count values that fail to parse.
+
+**Missing vs. invalid.** A cell is *missing* if, after trimming whitespace,
+it is empty or one of `NA`, `N/A`, `NaN`, `null`, `None` (any case). A cell is
+*invalid* if it has content that does not parse as the column's type: for
+numeric columns this includes `1,000` (thousands separators) and `inf`
+(infinite values break every distribution statistic). Datetimes must be
+ISO 8601. Ambiguous formats such as `01/02/2024` are invalid on purpose.
+
+**Schema inference** (on the reference dataset), applied to non-missing
+values in this order:
+
+1. no non-missing values → `unknown`, excluded (`ALL_MISSING`);
+2. every value is one of true/false/yes/no/1/0 (any case) → `boolean`;
+3. ≥ 95% parse as numbers → `numeric`, except integer-valued columns with
+   ≤ 10 distinct values (e.g. a 1–5 rating) → `categorical`, *integer-coded*;
+4. ≥ 95% parse as ISO 8601 datetimes → `datetime`, excluded in v1;
+5. otherwise → `categorical`, excluded if it looks like an identifier (§4.3).
+
+Integer-coded categoricals are normalised so `3` and `3.0` are the same
+category. pandas writes integer columns that contain missing values as
+floats, so without this the same data would look like new categories.
+
+Users can override any inferred type or exclude columns explicitly.
+
+**Known limitations of inference.** These are heuristics: a numeric ID column
+(`customer_id = 1, 2, 3, …`) is inferred as numeric and will show spurious
+drift unless excluded; a genuinely numeric feature with few distinct integer
+values becomes categorical unless overridden; locale-specific numbers
+(`1.234,5`) are invalid.
 
 Rows are never dropped silently: every exclusion is counted and returned.
 

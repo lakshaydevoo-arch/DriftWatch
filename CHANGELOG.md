@@ -17,3 +17,6 @@ first release.
 - `analytics`: seeded synthetic dataset generator with drift injection
   (mean shift, spread change, category shift incl. unseen categories,
   missing values).
+- `analytics`: strict CSV reading and schema inference (numeric, categorical,
+  boolean, datetime) with type overrides, column exclusion and
+  identifier detection.

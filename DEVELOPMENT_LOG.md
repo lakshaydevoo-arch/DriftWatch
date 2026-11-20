@@ -7,6 +7,66 @@ following session's commit (or read with `git log`).
 
 ---
 
+## 2026-11-21 — Milestone 1.3a: CSV reading and schema inference
+
+Task 1.3 is split in two commits: inference (this entry) and batch
+validation (1.3b), so each can be reviewed and tested on its own.
+
+**Feature implemented**
+
+- `schema.read_csv_text`: strict UTF-8 CSV reading with Python's `csv`
+  module; rejects blank or duplicate headers, ragged rows, invalid UTF-8 and
+  unterminated quotes.
+- `schema.parse_column`: per-type parsing with separate missing and invalid
+  masks; integer-coded categoricals normalised (`3.0` → `3`).
+- `schema.infer_schema`: ordered inference rules, overrides, exclusions,
+  identifier detection, configurable thresholds (`InferenceConfig`).
+
+**Design decision**
+
+- Did not use `pandas.read_csv`: probing showed it silently pads short rows
+  with empty values and renames duplicate or blank headers (`a.1`,
+  `Unnamed: 1`). Python's `csv` module is slower (pure Python) but lets
+  malformed files fail loudly. Fine under the v1 upload cap; revisit if
+  profiling shows a problem.
+
+**Files changed**
+
+- `analytics/src/driftwatch_analytics/schema/{__init__,csv_reader,parsing,types,inference}.py`
+- `analytics/tests/schema/{__init__,test_csv_reader,test_parsing,test_inference}.py`
+- `analytics/README.md`, `ML_MONITORING_DESIGN.md` (§4.3, §7 made precise),
+  `DEVELOPMENT_ROADMAP.md`, `CHANGELOG.md`, `DEVELOPMENT_LOG.md`
+
+**Tests executed** (Python 3.13.15)
+
+- `pytest`: 106 passed (47 new). Covers CSV edge cases (quoted commas and
+  newlines, BOM, CRLF, header-only, 7 malformed inputs), missing tokens vs.
+  invalid values, `inf` and `1,000` invalid, ISO-only dates, integer-coded
+  normalisation incl. overflow guard, every inference rule and its boundary
+  (95% numeric threshold tested on both sides), overrides, exclusions,
+  determinism, and a CSV round trip of the synthetic dataset.
+- `ruff format --check .`, `ruff check .`, `mypy` (strict): clean.
+
+**Issues found and fixed during verification**
+
+- `np.floor` on a Series is typed `Any` in the stubs (mypy `no-any-return`);
+  replaced with `numbers % 1 == 0`.
+- Added a guard so huge values like `1e300` are not treated as integers
+  (they would overflow `int64`).
+
+**Commit hash**
+
+- To be recorded in the next entry (see `git log`).
+
+**Remaining work**
+
+- 1.3b validate current batches against a schema (missing/extra columns,
+  invalid rates, schema violations).
+
+**Open decisions**: license (MIT vs Apache-2.0).
+
+---
+
 ## 2026-11-21 — Milestone 1.2: synthetic data generator with drift injection
 
 **Feature implemented**
@@ -46,7 +106,7 @@ following session's commit (or read with `git log`).
 
 **Commit hash**
 
-- To be recorded in the next entry (see `git log`).
+- `ef89481`
 
 **Remaining work**
 
