@@ -22,9 +22,9 @@ Depends on: nothing.
   pytest, ruff (lint + format), mypy
 - ✅ 1.2 Seeded synthetic dataset generator with drift injection
   (mean shift, variance change, category shift, missing values)
-- 🔄 1.3 Schema inference and validation (types, missing, invalid values)
+- ✅ 1.3 Schema inference and validation (types, missing, invalid values)
   - ✅ 1.3a Strict CSV reading, value parsing, schema inference
-  - ⏳ 1.3b Validate current batches against a schema
+  - ✅ 1.3b Validate current batches against a schema
 - ⏳ 1.4 Reference profile builder (quantile bins, category counts, seeded
   sample) + determinism tests
 - ⏳ 1.5 Numeric drift: PSI and KS

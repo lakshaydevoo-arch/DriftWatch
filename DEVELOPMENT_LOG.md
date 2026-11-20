@@ -7,6 +7,50 @@ following session's commit (or read with `git log`).
 
 ---
 
+## 2026-11-21 — Milestone 1.3b: batch validation against a schema
+
+**Feature implemented**
+
+- `schema.validate_batch` returns a `BatchValidationReport`: row count,
+  per-column `ColumnValidation` (missing/invalid counts and rates, schema
+  violation flag), structured `ValidationIssue`s with codes and severities,
+  and the parsed typed values for later drift stages.
+- Only a missing *monitored* column is an error. Extra columns, missing
+  excluded columns, empty batches and invalid-value rates above
+  `max_invalid_rate` (default 5%) are warnings, so healthy features are still
+  monitored.
+
+**Files changed**
+
+- `analytics/src/driftwatch_analytics/schema/{validation,__init__}.py`
+- `analytics/tests/schema/test_validation.py`
+- `analytics/README.md`, `ML_MONITORING_DESIGN.md` (§7 table),
+  `DEVELOPMENT_ROADMAP.md`, `CHANGELOG.md`, `DEVELOPMENT_LOG.md`
+
+**Tests executed** (Python 3.13.15)
+
+- `pytest`: 125 passed (19 new). Covers a clean batch, a drifted but
+  well-formed batch (still valid), missing monitored and excluded columns,
+  extra columns, column order, exact missing rates, the 5% invalid boundary
+  on both sides (25 vs. 26 of 500), invalid rate measured on non-missing
+  values only, boolean validation, unseen categories not treated as errors,
+  empty and all-missing batches, parsed values, custom threshold,
+  determinism.
+- `ruff format --check .`, `ruff check .`, `mypy` (strict): clean.
+
+**Commit hash**
+
+- To be recorded in the next entry (see `git log`).
+
+**Remaining work**
+
+- 1.4 reference profile builder (quantile bins, category counts, seeded
+  sample) with determinism tests.
+
+**Open decisions**: license (MIT vs Apache-2.0).
+
+---
+
 ## 2026-11-21 — Milestone 1.3a: CSV reading and schema inference
 
 Task 1.3 is split in two commits: inference (this entry) and batch
@@ -56,7 +100,7 @@ validation (1.3b), so each can be reviewed and tested on its own.
 
 **Commit hash**
 
-- To be recorded in the next entry (see `git log`).
+- `faabff3`
 
 **Remaining work**
 

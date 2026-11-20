@@ -148,9 +148,12 @@ Validation happens *before* any statistics are computed.
 
 | Situation | Behaviour |
 |-----------|-----------|
-| Column in schema missing from current batch | Batch rejected (`422`), listing missing columns |
+| Monitored column missing from current batch | Batch rejected (`422`), listing missing columns |
+| Excluded column missing from current batch | Warning only (it is not needed) |
 | Extra column in current batch | Ignored, warning returned |
-| Numeric column contains unparseable values | Values counted as `invalid`; feature marked `SCHEMA_VIOLATION` if invalid rate > 5% |
+| Numeric / boolean column contains unparseable values | Values counted as `invalid`; feature marked `SCHEMA_VIOLATION` if invalid / non-missing > 5%. The batch is not rejected: other features are still monitored |
+| Unseen category in a categorical column | Not a validation issue; it is a drift signal (§4) |
+| Batch with zero rows | Valid with a warning; every feature ends up `INSUFFICIENT_DATA` |
 | Missing values (`NaN`, empty string, `null`) | Excluded from distribution tests; missing rate reported for both sides |
 | Missing-rate change | Separate flag when absolute change > 0.05 (configurable) |
 | Fewer than 30 non-missing current values | Feature marked `INSUFFICIENT_DATA`; no drift verdict |

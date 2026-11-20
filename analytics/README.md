@@ -2,7 +2,7 @@
 
 **Status:** Milestone 1 in progress. Implemented: service scaffold with
 `/health` (1.1), the seeded synthetic data generator (1.2) and CSV loading
-with schema inference (1.3a). No drift statistics yet.
+with schema inference and batch validation (1.3). No drift statistics yet.
 
 Stateless FastAPI service that infers schemas, builds reference profiles and
 computes drift and performance metrics. It has no database and no filesystem
@@ -124,10 +124,10 @@ are built explicitly in the tests that need them.
 ```python
 from driftwatch_analytics.schema import LogicalType, infer_schema, parse_column, read_csv_text
 
-text = read_csv_text(open("reference.csv", "rb").read())   # all cells as strings
+text = read_csv_text(open("reference.csv", "rb").read())  # all cells as strings
 schema = infer_schema(
     text,
-    overrides={"zip_code": LogicalType.CATEGORICAL},        # optional corrections
+    overrides={"zip_code": LogicalType.CATEGORICAL},  # optional corrections
     exclude=["customer_id"],
 )
 for column in schema.columns:
@@ -142,6 +142,17 @@ parsed.values, parsed.n_missing, parsed.n_invalid
 | `read_csv_text` | Strict UTF-8 CSV reading; rejects blank or duplicate headers and rows with the wrong field count (`CsvFormatError`) |
 | `parse_column` | Text → typed values, with separate *missing* and *invalid* masks |
 | `infer_schema` | Logical type per column (`numeric`, `categorical`, `boolean`, `datetime`, `unknown`) plus an exclusion reason where needed |
+| `validate_batch` | Checks a batch against a schema; returns per-column missing/invalid counts, structured issues and the parsed values |
+
+```python
+from driftwatch_analytics.schema import validate_batch
+
+report = validate_batch(read_csv_text(current_bytes), schema)
+report.is_valid                       # False only if a monitored column is missing
+[(i.code, i.column, i.severity) for i in report.issues]
+report.column("age").invalid_rate     # invalid / non-missing, None if undefined
+report.parsed["age"].values           # typed values for the drift stage
+```
 
 Rules, thresholds and limitations:
 [ML_MONITORING_DESIGN.md §7](../ML_MONITORING_DESIGN.md#7-data-validation-and-quality).

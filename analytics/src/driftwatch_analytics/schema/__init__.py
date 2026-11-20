@@ -13,18 +13,34 @@ from driftwatch_analytics.schema.types import (
     LogicalType,
     TypeSource,
 )
+from driftwatch_analytics.schema.validation import (
+    BatchValidationReport,
+    ColumnValidation,
+    IssueCode,
+    Severity,
+    ValidationConfig,
+    ValidationIssue,
+    validate_batch,
+)
 
 __all__ = [
     "MISSING_TOKENS",
+    "BatchValidationReport",
     "ColumnSchema",
+    "ColumnValidation",
     "CsvFormatError",
     "DatasetSchema",
     "ExclusionReason",
     "InferenceConfig",
+    "IssueCode",
     "LogicalType",
     "ParsedColumn",
+    "Severity",
     "TypeSource",
+    "ValidationConfig",
+    "ValidationIssue",
     "infer_schema",
     "parse_column",
     "read_csv_text",
+    "validate_batch",
 ]

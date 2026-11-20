@@ -20,3 +20,6 @@ first release.
 - `analytics`: strict CSV reading and schema inference (numeric, categorical,
   boolean, datetime) with type overrides, column exclusion and
   identifier detection.
+- `analytics`: batch validation against a schema with structured issues
+  (missing/extra columns, schema violations, empty batch) and per-column
+  missing and invalid rates.
