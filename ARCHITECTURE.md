@@ -122,8 +122,8 @@ is reported alongside the metrics.
 ```text
 monitored_model(id, name UNIQUE, task_type, target_column, prediction_column,
                 created_at)
-dataset(id, model_id FK, role, sha256, storage_path, row_count, byte_size,
-        status, schema JSONB, created_at)
+dataset(id, model_id FK, role, sha256, byte_size, original_filename,
+        created_at)                      -- V2; row_count, status, schema: 2.6
 reference_profile(id, dataset_id FK UNIQUE, engine_version, profile JSONB,
                   created_at)
 monitoring_run(id, model_id FK, reference_dataset_id FK, current_dataset_id FK,
@@ -214,5 +214,5 @@ run together (Milestone 5 in the roadmap).
 | D2 | Analytics engine is stateless | Testability, reproducibility, single source of truth | Implemented (engine side) |
 | D3 | Reference data summarised into a stored *profile* | Avoid re-reading full reference data every run; deterministic bins | Implemented (engine side) |
 | D4 | Batch (file upload) ingestion first, no streaming | Fits typical offline monitoring; avoids premature infrastructure | Proposed |
-| D5 | Uploaded files on a local volume, metadata in PostgreSQL | Simple; object storage (S3/MinIO) only if needed | Proposed |
+| D5 | Uploaded files on a local volume, metadata in PostgreSQL | Simple; object storage (S3/MinIO) only if needed | Implemented: content-addressed by SHA-256; path derived from the hash, not stored |
 | D6 | Synchronous HTTP between services, no broker | One caller, one callee; a queue adds no value yet | Proposed |

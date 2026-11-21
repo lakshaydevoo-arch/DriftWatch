@@ -48,3 +48,6 @@ first release.
 - `backend`: model registry API (`POST`/`GET /api/v1/models`,
   `GET /api/v1/models/{id}`) with validation, race-safe unique names and
   RFC 9457 problem-details errors.
+- `backend`: content-addressed dataset file storage (SHA-256, streaming,
+  size limit, read-only files) configured with
+  `DRIFTWATCH_DATASETS_STORAGE_ROOT` and `DRIFTWATCH_DATASETS_MAX_UPLOAD_SIZE`.

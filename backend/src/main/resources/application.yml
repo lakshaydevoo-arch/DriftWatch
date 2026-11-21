@@ -28,6 +28,15 @@ spring:
     # A migration edited after it was applied fails validation at startup.
     validate-on-migrate: true
 
+driftwatch:
+  datasets:
+    # Where uploaded files are stored (content-addressed by SHA-256). Set
+    # DRIFTWATCH_DATASETS_STORAGE_ROOT in deployments; the default is relative
+    # to the working directory and meant for local development.
+    storage-root: storage/datasets
+    # Matches the analytics engine's per-file limit (DRIFTWATCH_MAX_UPLOAD_BYTES).
+    max-upload-size: 100MB
+
 management:
   endpoints:
     web:

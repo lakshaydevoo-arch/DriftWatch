@@ -7,6 +7,103 @@ following session's commit (or read with `git log`).
 
 ---
 
+## 2026-11-21 — Milestone 2.4: content-addressed dataset storage
+
+**Scope decision:** the roadmap gives the public upload endpoints to 2.6
+(reference registration) and 2.7 (monitoring runs). This task builds the
+storage layer they will share, with no new endpoint, to avoid API surface
+the plan does not call for.
+
+**Feature implemented**
+
+- `V2__create_dataset.sql`: `dataset` (UUID id, FK to `monitored_model` with
+  `ON DELETE RESTRICT`, role check, lower-case hex SHA-256 check, positive
+  size, optional original file name, `created_at`; index on
+  `(model_id, created_at)`). Only columns this task fills.
+- `ContentAddressedFileStore`: streaming SHA-256 and size limit, temporary
+  file inside the root, read-only file, atomic move to
+  `<root>/ab/cd/<hash>`, deduplication, strict hash validation.
+- `Dataset` entity (UUIDv7, microsecond `createdAt`, model referenced by
+  id), `DatasetRepository`, `DatasetService.store/forModel/open`,
+  `DatasetProperties` (`driftwatch.datasets.*`, validated at startup).
+- Test resources: each test context stores files in a fresh temporary
+  directory, never in the working tree; `.gitignore` covers
+  `backend/storage/` for local runs.
+
+**Design decisions**
+
+- **No transaction during the upload:** model check, then file copy, then
+  a short insert transaction, so slow 100 MB uploads cannot exhaust the
+  connection pool. The cost is possible unreferenced blobs if the insert
+  fails; they are harmless and reusable (content addressing).
+- **Path derived from the hash, not stored**, so the store root can move.
+- **No CSV parsing in the backend:** the engine is the single
+  implementation of the parsing rules.
+
+**Files changed**
+
+- `backend/src/main/resources/db/migration/V2__create_dataset.sql`
+- `backend/src/main/java/io/driftwatch/backend/dataset/*` (10 files)
+- `backend/src/main/resources/application.yml`, `backend/src/test/resources/application.properties`
+- `backend/src/test/java/io/driftwatch/backend/dataset/{ContentAddressedFileStoreTest,DatasetServiceTest}.java`
+- `backend/src/test/java/io/driftwatch/backend/{DatabaseSchemaTest,model/ModelApiTest}.java`
+- `.gitignore`, `backend/README.md`, `ARCHITECTURE.md` (§6, D5),
+  `DEVELOPMENT_ROADMAP.md`, `CHANGELOG.md`, `DEVELOPMENT_LOG.md`
+
+**Tests executed** (Temurin 21.0.13, PostgreSQL 16.16 via Testcontainers)
+
+- `./mvnw verify`: **86 passed** (34 new).
+  - File store (16): hash and layout; deduplication; distinct content;
+    limit boundary (exact OK, +1 rejected, nothing kept); endless stream cut
+    off; empty rejected; 20 MB random content; read-only permissions;
+    8 concurrent stores of the same content give one file and no temp
+    leftovers; 4 invalid addresses including `../`; missing file.
+  - Dataset service (13): store and read back; storage under the test temp
+    directory; duplicate content gives two rows and one file; unknown model
+    rejected before anything is written; oversized, empty and 4 invalid
+    file names rejected without a row; name length 255/256; optional name;
+    a traversal-looking name never becomes a path.
+  - Schema (5 new): migration history V1 + V2; FK required; model with
+    datasets cannot be deleted; role, hash format and size checks.
+- The suite also passes with **reverse class order**
+  (`-Dsurefire.runOrder=reversealphabetical`), checking the isolation fix.
+- No `backend/storage/` created in the working tree.
+
+**Issues found and fixed during verification**
+
+- **Schema validation caught a type mismatch:** V2 first declared
+  `sha256 CHAR(64)` while the entity maps `VARCHAR`; Hibernate's `validate`
+  mode refused to start. Changed to `VARCHAR(64)` (PostgreSQL pads `CHAR`;
+  the check already fixes the length). V2 had not been committed or applied
+  to any persistent database, so editing it was safe.
+- **Test isolation:** `DatasetServiceTest` committed a model that collided
+  with `DatabaseSchemaTest` (same cached Spring context, so same database),
+  an order-dependent failure. Every class now cleans up after itself, the
+  schema test starts from empty tables inside its rolled-back transaction,
+  and `ModelApiTest` deletes datasets before models.
+- I first wrote a near-vacuous assertion in the path-traversal test;
+  replaced it with a direct check that every stored file is named by its
+  hash.
+
+**Known limitations**
+
+- Unreferenced blobs are not cleaned up yet.
+- Each test context leaves a small temporary directory (about 4 KB) in the
+  OS temp folder.
+
+**Commit hash**
+
+- To be recorded in the next entry (see `git log`).
+
+**Remaining work**
+
+- 2.5 analytics HTTP client with timeouts and error mapping.
+
+**Open decisions**: license (MIT vs Apache-2.0); repository publication;
+optional rename of the `io.driftwatch` package.
+
+---
+
 ## 2026-11-21 — Milestone 2.3: model registry API
 
 **Feature implemented**
@@ -81,7 +178,7 @@ following session's commit (or read with `git log`).
 
 **Commit hash**
 
-- To be recorded in the next entry (see `git log`).
+- `a16d2e9`
 
 **Remaining work**
 

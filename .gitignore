@@ -47,3 +47,5 @@ coverage/
 /data/
 *.parquet
 /storage/
+# Backend's default local dataset store (relative to backend/)
+backend/storage/
