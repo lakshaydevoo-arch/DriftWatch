@@ -36,6 +36,13 @@ driftwatch:
     storage-root: storage/datasets
     # Matches the analytics engine's per-file limit (DRIFTWATCH_MAX_UPLOAD_BYTES).
     max-upload-size: 100MB
+  analytics:
+    # The analytics engine (DRIFTWATCH_ANALYTICS_BASE_URL in deployments).
+    base-url: http://localhost:8000
+    # Fail fast when the engine is down.
+    connect-timeout: 2s
+    # Profiling a 100 MB CSV is CPU-bound and can take minutes.
+    read-timeout: 5m
 
 management:
   endpoints:

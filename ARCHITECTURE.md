@@ -193,7 +193,7 @@ DriftWatch/
 ├── analytics/      Python FastAPI statistical engine (stateless)
 ├── backend/        Spring Boot API, persistence, orchestration
 ├── frontend/       React + TypeScript dashboard
-├── .github/        CI workflows (analytics.yml, backend.yml)
+├── .github/        CI workflows (analytics.yml, backend.yml, engine-contract.yml)
 ├── ARCHITECTURE.md
 ├── ML_MONITORING_DESIGN.md
 ├── DEVELOPMENT_ROADMAP.md
@@ -215,4 +215,4 @@ run together (Milestone 5 in the roadmap).
 | D3 | Reference data summarised into a stored *profile* | Avoid re-reading full reference data every run; deterministic bins | Implemented (engine side) |
 | D4 | Batch (file upload) ingestion first, no streaming | Fits typical offline monitoring; avoids premature infrastructure | Proposed |
 | D5 | Uploaded files on a local volume, metadata in PostgreSQL | Simple; object storage (S3/MinIO) only if needed | Implemented: content-addressed by SHA-256; path derived from the hash, not stored |
-| D6 | Synchronous HTTP between services, no broker | One caller, one callee; a queue adds no value yet | Proposed |
+| D6 | Synchronous HTTP between services, no broker | One caller, one callee; a queue adds no value yet | Implemented: `AnalyticsClient` with timeouts and three error types; contract checked in CI |

@@ -53,7 +53,7 @@ Depends on: Milestone 1 API contracts (1.8).
   Problem Details errors
 - ✅ 2.4 Dataset upload, SHA-256 content-addressed file store, size limits
   (storage layer; the HTTP upload endpoints arrive with 2.6 and 2.7)
-- ⏳ 2.5 Analytics HTTP client with timeouts and error mapping
+- ✅ 2.5 Analytics HTTP client with timeouts and error mapping
 - ⏳ 2.6 Reference registration workflow (upload → profile → persist)
 - ⏳ 2.7 Monitoring run lifecycle (`PENDING → RUNNING → SUCCEEDED/FAILED`)
   on a bounded executor

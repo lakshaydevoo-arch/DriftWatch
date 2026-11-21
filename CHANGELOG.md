@@ -51,3 +51,6 @@ first release.
 - `backend`: content-addressed dataset file storage (SHA-256, streaming,
   size limit, read-only files) configured with
   `DRIFTWATCH_DATASETS_STORAGE_ROOT` and `DRIFTWATCH_DATASETS_MAX_UPLOAD_SIZE`.
+- `backend`: analytics engine client with connect/read timeouts
+  (`DRIFTWATCH_ANALYTICS_BASE_URL`) and distinct rejected / unavailable /
+  protocol errors; contract against the real engine checked in CI.

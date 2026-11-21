@@ -1,0 +1,81 @@
+# Backend <-> analytics engine contract.
+#
+# Starts the real analytics engine and runs the backend's
+# AnalyticsEngineContractTest against it. The contract can break from either
+# side, so this runs when analytics/ or backend/ changes. Actions are pinned to
+# commit SHAs (tags can be moved).
+name: engine-contract
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "analytics/**"
+      - "backend/**"
+      - ".github/workflows/engine-contract.yml"
+  pull_request:
+    paths:
+      - "analytics/**"
+      - "backend/**"
+      - ".github/workflows/engine-contract.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: engine-contract-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contract:
+    name: Backend client vs. engine
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: analytics/requirements-dev.lock
+
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+          cache-dependency-path: backend/pom.xml
+
+      - name: Install the engine (locked dependencies)
+        working-directory: analytics
+        run: |
+          python -m pip install -r requirements-dev.lock
+          python -m pip install --no-deps -e .
+
+      - name: Start the engine
+        working-directory: analytics
+        run: |
+          nohup uvicorn driftwatch_analytics.main:app --host 127.0.0.1 --port 8000 \
+            > "$RUNNER_TEMP/engine.log" 2>&1 &
+          for _ in $(seq 1 30); do
+            curl -sf http://127.0.0.1:8000/health && exit 0
+            sleep 1
+          done
+          cat "$RUNNER_TEMP/engine.log"
+          exit 1
+
+      - name: Run the contract test
+        working-directory: backend
+        env:
+          DRIFTWATCH_ANALYTICS_URL: http://127.0.0.1:8000
+        run: >-
+          ./mvnw --batch-mode --no-transfer-progress
+          -Dtest=AnalyticsEngineContractTest -Dsurefire.failIfNoSpecifiedTests=false test
+
+      - name: Engine log
+        if: always()
+        run: cat "$RUNNER_TEMP/engine.log"

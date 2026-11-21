@@ -3,7 +3,8 @@
 **Status:** Milestone 2 in progress. Implemented: project scaffold with
 health and build-info endpoints (2.1); PostgreSQL with Flyway migrations and
 Testcontainers integration tests (2.2); model registry API (2.3); dataset
-file storage (2.4, internal: the upload endpoints come with 2.6 and 2.7).
+file storage (2.4, internal: the upload endpoints come with 2.6 and 2.7);
+analytics engine client (2.5, internal).
 
 Spring Boot application that will expose the public REST API, store models,
 datasets, reference profiles and monitoring results in PostgreSQL, and call
@@ -180,6 +181,51 @@ Both are validated at startup.
   reuses it; removing such blobs is left to a future clean-up job.
 - CSV content is not parsed here. Parsing rules live in one place, the
   analytics engine, which validates the file during profiling (2.6).
+
+## Analytics engine client
+
+`analytics.AnalyticsClient` calls the engine's `GET /health`,
+`POST /v1/profile` and `POST /v1/drift`
+([contract](../analytics/README.md#api)). It uses Spring's `RestClient` on
+the JDK HTTP client; files are sent as multipart resources, and the profile
+is sent as a file part, as the engine requires.
+
+| Property | Default | Meaning |
+|----------|---------|---------|
+| `driftwatch.analytics.base-url` (`DRIFTWATCH_ANALYTICS_BASE_URL`) | `http://localhost:8000` | Engine address |
+| `driftwatch.analytics.connect-timeout` | `2s` | Fail fast when the engine is down |
+| `driftwatch.analytics.read-timeout` | `5m` | Profiling a 100 MB CSV is CPU-bound and can take minutes |
+
+**Every failure is one of three exceptions**, so callers decide what to do
+by type:
+
+| Exception | When | Caller should |
+|-----------|------|---------------|
+| `AnalyticsRejectedException` | Engine returned a DriftWatch 4xx problem (`invalid-csv`, `schema-mismatch`, `upload-too-large`, …). Carries status, `kind`, detail and `errors`. | Show it to the user; retrying will not help |
+| `AnalyticsUnavailableException` | Connection refused, timeout, 5xx | Mark the work as failed or retry later |
+| `AnalyticsProtocolException` | Contract violation: 2xx with invalid JSON, 4xx without a DriftWatch problem body (e.g. `about:blank` 404), missing fields | Treat as a bug or an engine version mismatch |
+
+The client **never retries**. The engine is stateless, so a repeat is safe,
+but re-sending a 100 MB upload doubles the load; the run lifecycle (2.7)
+decides. Responses are returned as JSON trees: the engine owns its data
+model, and the backend stores profiles and results as JSON.
+
+**Tests**
+
+- `AnalyticsClientTest` uses a stub HTTP server (the JDK's `HttpServer`)
+  for the request format, all three error types, a refused connection, a
+  read timeout and a 32 MB upload.
+- `AnalyticsEngineContractTest` runs against the **real** engine when
+  `DRIFTWATCH_ANALYTICS_URL` is set (otherwise it is reported as skipped):
+
+  ```bash
+  (cd ../analytics && .venv/bin/uvicorn driftwatch_analytics.main:app --port 8000) &
+  DRIFTWATCH_ANALYTICS_URL=http://127.0.0.1:8000 ./mvnw verify
+  ```
+
+  CI runs it in the `engine-contract` workflow whenever `analytics/` or
+  `backend/` changes, so a change on either side that breaks the contract
+  fails the build.
 
 ## Operational endpoints
 

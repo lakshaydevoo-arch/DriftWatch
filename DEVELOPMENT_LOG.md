@@ -7,6 +7,89 @@ following session's commit (or read with `git log`).
 
 ---
 
+## 2026-11-21 — Milestone 2.5: analytics engine client
+
+**Feature implemented**
+
+- `analytics.AnalyticsClient`: `health()`, `profile(csv, filename, options)`,
+  `drift(profileJson, csv, filename, config)` with Spring `RestClient` on the
+  JDK HTTP client (HTTP/1.1, connect and read timeouts).
+- Sealed `AnalyticsException` hierarchy: `AnalyticsRejectedException`
+  (DriftWatch 4xx problem; keeps status, kind, detail, errors),
+  `AnalyticsUnavailableException` (refused, timeout, 5xx),
+  `AnalyticsProtocolException` (contract violations).
+- `AnalyticsProperties` (`driftwatch.analytics.*`, validated at startup).
+- `.github/workflows/engine-contract.yml`: installs the engine from its lock
+  file, starts it, and runs `AnalyticsEngineContractTest`; triggered by
+  changes to `analytics/` or `backend/`.
+
+**Design decisions**
+
+- **No retries in the client:** requests are idempotent (stateless
+  engine), but re-sending large uploads doubles the load; the caller decides.
+- **JSON trees, not Java copies of the engine's models:** the backend
+  stores profiles and results as JSON and should not duplicate a data model
+  it does not own.
+- **`exchange()` instead of Spring's default status handling**, which would
+  hide the engine's problem `type`.
+- **Contract test against the real engine** rather than recorded fixtures:
+  fixtures go stale without anyone noticing, while a real engine in CI fails
+  as soon as either side changes the contract.
+
+**Files changed**
+
+- `backend/src/main/java/io/driftwatch/backend/analytics/*` (10 files)
+- `backend/src/main/resources/application.yml`
+- `backend/src/test/java/io/driftwatch/backend/analytics/{AnalyticsClientTest,AnalyticsEngineContractTest}.java`
+- `.github/workflows/engine-contract.yml`
+- `backend/README.md`, `CONTRIBUTING.md`, `ARCHITECTURE.md` (layout, D6),
+  `DEVELOPMENT_ROADMAP.md`, `CHANGELOG.md`, `DEVELOPMENT_LOG.md`
+
+**Tests executed** (Temurin 21.0.13; engine 0.1.0.dev0 on Python 3.13.15)
+
+- `./mvnw verify`: **101 passed, 9 skipped** (the contract tests, which
+  need an engine). New: 15 stub-server tests covering multipart format (file
+  part name, file name, `text/csv`; profile as an `application/json` file
+  part; options and config), 32 MB upload, rejected 422/413 with kind and
+  errors, `about:blank` and non-problem 4xx as protocol errors, 500 and HTML
+  503 as unavailable, invalid JSON, missing field, **refused connection**
+  (closed port), **read timeout** (300 ms limit, finishes in under 2 s).
+- **Contract test against the real engine: 9 passed**: health, profile,
+  options pass-through, profile → drift round trip (no drift; 1 sd shift
+  flagged on `age` only), config pass-through, and the real `invalid-csv`,
+  `schema-mismatch`, `invalid-profile` and `invalid-options` rejections. The
+  engine's log shows 8 × 200 and 4 × 422, with no server errors.
+- Replayed the `engine-contract` workflow steps locally: 9 passed.
+
+**Issues found and fixed during verification**
+
+- `MultipartBodyBuilder` failed with `NoClassDefFoundError:
+  org/reactivestreams/Publisher`: it belongs to Spring's reactive stack.
+  Replaced with `LinkedMultiValueMap` + `HttpEntity` parts (servlet-side
+  `FormHttpMessageConverter`) instead of adding a reactive dependency.
+- A test expected `multipart/form-data; boundary=`; Spring sends no space
+  after `;`, which is equally valid (RFC 9110). The assertion now ignores the
+  whitespace.
+
+**Not verified**
+
+- The `engine-contract` workflow has not run on GitHub (repository not
+  published).
+
+**Commit hash**
+
+- To be recorded in the next entry (see `git log`).
+
+**Remaining work**
+
+- 2.6 reference registration workflow: `POST /api/v1/models/{id}/reference`
+  → store → profile → persist schema and profile (V3 migration).
+
+**Open decisions**: license (MIT vs Apache-2.0); repository publication;
+optional rename of the `io.driftwatch` package.
+
+---
+
 ## 2026-11-21 — Milestone 2.4: content-addressed dataset storage
 
 **Scope decision:** the roadmap gives the public upload endpoints to 2.6
@@ -93,7 +176,7 @@ the plan does not call for.
 
 **Commit hash**
 
-- To be recorded in the next entry (see `git log`).
+- `3560eac`
 
 **Remaining work**
 

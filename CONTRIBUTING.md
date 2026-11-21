@@ -52,6 +52,10 @@ same commands (`.github/workflows/`), so a change that passes locally should
 pass in CI. If you change dependencies, regenerate the module's lock file
 (see `analytics/README.md`) in the same commit.
 
+If you change the engine's API or the backend's client, also run the
+backend's `AnalyticsEngineContractTest` against a running engine (see
+`backend/README.md`); CI runs it in the `engine-contract` workflow.
+
 | Module | Format / lint | Tests |
 |--------|---------------|-------|
 | `analytics` | `ruff format --check .` · `ruff check .` · `mypy` | `pytest` |
