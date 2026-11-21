@@ -2,6 +2,26 @@ spring:
   application:
     name: driftwatch-backend
 
+  datasource:
+    # Override with SPRING_DATASOURCE_URL / _USERNAME / _PASSWORD.
+    # No password is stored here; local development uses Testcontainers
+    # (see backend/README.md), and deployments must set it explicitly.
+    url: jdbc:postgresql://localhost:5432/driftwatch
+    username: driftwatch
+
+  jpa:
+    hibernate:
+      # Flyway owns the schema. Hibernate only checks that entities match it
+      # and refuses to start otherwise; it never creates or alters tables.
+      ddl-auto: validate
+    # No lazy loading during view rendering: transactions end in the service layer.
+    open-in-view: false
+
+  flyway:
+    locations: classpath:db/migration
+    # A migration edited after it was applied fails validation at startup.
+    validate-on-migrate: true
+
 management:
   endpoints:
     web:
@@ -16,6 +36,11 @@ management:
       # /actuator/health/liveness and /readiness for container orchestrators.
       probes:
         enabled: true
+      group:
+        readiness:
+          # Not ready to serve traffic without the database. Liveness does NOT
+          # include the database: an outage should not trigger restarts.
+          include: readinessState, db
   info:
     # Do not publish the server's Java/OS details; build info is enough.
     java:

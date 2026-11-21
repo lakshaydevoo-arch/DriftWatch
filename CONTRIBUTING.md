@@ -55,7 +55,7 @@ pass in CI. If you change dependencies, regenerate the module's lock file
 | Module | Format / lint | Tests |
 |--------|---------------|-------|
 | `analytics` | `ruff format --check .` · `ruff check .` · `mypy` | `pytest` |
-| `backend` | `./mvnw spotless:check` | `./mvnw verify` (unit + Testcontainers integration tests) |
+| `backend` | `./mvnw spotless:check` | `./mvnw verify` (unit + Testcontainers integration tests; needs Docker) |
 | `frontend` | `npm run lint` · `npm run format:check` · `npm run typecheck` | `npm test` |
 
 ## Testing expectations

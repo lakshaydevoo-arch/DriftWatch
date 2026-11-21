@@ -43,3 +43,5 @@ first release.
   (`DRIFTWATCH_MAX_UPLOAD_BYTES`) and RFC 9457 problem-details errors.
 - `backend`: Spring Boot 4.2 application (Java 21) with health, liveness,
   readiness and build-info endpoints; other Actuator endpoints stay unexposed.
+- `backend`: PostgreSQL persistence with Flyway migrations (V1: model registry
+  table); readiness reports `503` when the database is unreachable.

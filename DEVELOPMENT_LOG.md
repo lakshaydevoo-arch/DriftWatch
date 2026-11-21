@@ -7,6 +7,87 @@ following session's commit (or read with `git log`).
 
 ---
 
+## 2026-11-21 — Milestone 2.2: PostgreSQL, Flyway and Testcontainers
+
+**Feature implemented**
+
+- Dependencies (versions managed by Spring Boot 4.2.0): `spring-boot-starter-data-jpa`
+  (Hibernate 7.4), `spring-boot-starter-flyway` (Flyway 12.11) +
+  `flyway-database-postgresql`, PostgreSQL JDBC 42.7.14; for tests,
+  `spring-boot-testcontainers` and Testcontainers 2.0.5
+  (`testcontainers-postgresql`, `testcontainers-junit-jupiter`).
+- `V1__create_monitored_model.sql`: the only table the next task needs.
+  UUID primary key (application-generated), unique and non-blank `name`,
+  `task_type` restricted by a check constraint, optional target/prediction
+  columns, `created_at` default.
+- Configuration: `ddl-auto: validate`, `open-in-view: false`,
+  `validate-on-migrate: true`; datasource from `SPRING_DATASOURCE_*`, with no
+  password in the repository; readiness group includes `db`, liveness does
+  not.
+- `TestcontainersConfiguration` (`postgres:16.16-alpine`, exact tag, same
+  digest as `16-alpine` at the time) and `TestDriftWatchApplication` for
+  `./mvnw spring-boot:test-run` without a local PostgreSQL.
+
+**Decisions**
+
+- **One table, not the whole data model.** Creating all five tables from
+  ARCHITECTURE.md now would put unused tables in the schema. Each feature
+  adds its own migration.
+- **Readiness includes the database, liveness does not**, so a database
+  outage stops traffic but does not trigger restart loops.
+
+**Finding: third-party Maven repositories**
+
+- The first build logged HTTP 401 warnings from two private Redgate
+  repositories. They are declared in `flyway-parent-12.11.0.pom`, and Maven
+  queries every repository a dependency's POM declares. Nothing was
+  downloaded from them, but builds should not depend on third-party
+  repositories. `pom.xml` now redeclares both ids as disabled. Verified with
+  an **empty local repository**: all 831 downloads came from Maven Central,
+  with no warnings.
+
+**Files changed**
+
+- `backend/pom.xml`, `backend/src/main/resources/application.yml`
+- `backend/src/main/resources/db/migration/V1__create_monitored_model.sql`
+- `backend/src/test/java/io/driftwatch/backend/{TestcontainersConfiguration,TestDriftWatchApplication,DatabaseSchemaTest,ReadinessProbeTest,ActuatorEndpointsTest}.java`
+- `backend/README.md`, `ARCHITECTURE.md` (§6), `CONTRIBUTING.md`,
+  `DEVELOPMENT_ROADMAP.md`, `CHANGELOG.md`, `DEVELOPMENT_LOG.md`
+
+**Tests executed** (Temurin 21.0.13, Docker 29.9.2, PostgreSQL 16.16)
+
+- `./mvnw verify`: **20 passed** (10 new). Schema: Flyway history at V1;
+  server version 16.x; exact columns, types and nullability; valid insert
+  with timestamp; duplicate name, unknown task type, blank name, missing
+  name and 101-character name each rejected by the intended constraint.
+  Readiness: with the database stopped mid-test, readiness and overall
+  health return 503 while liveness stays 200. The 10 existing endpoint tests
+  now run against the container.
+- **Mutation check:** with `db` removed from the readiness group, the
+  readiness test fails (expected 503, got 200); configuration restored.
+- `./mvnw spring-boot:test-run`: started a throwaway PostgreSQL, applied V1,
+  readiness 200.
+- No containers left running afterwards (Testcontainers cleans up).
+
+**Environment note**
+
+- The Docker daemon was not running at the start; I started Docker Desktop
+  (`open -a Docker`) because the approved plan requires Testcontainers.
+
+**Commit hash**
+
+- To be recorded in the next entry (see `git log`).
+
+**Remaining work**
+
+- 2.3 model registry API (`/api/v1/models`) with validation and Problem
+  Details errors, using the `monitored_model` table.
+
+**Open decisions**: license (MIT vs Apache-2.0); repository publication;
+optional rename of the `io.driftwatch` package.
+
+---
+
 ## 2026-11-21 — Milestone 2.1: backend scaffold
 
 **Feature implemented**
@@ -69,7 +150,7 @@ following session's commit (or read with `git log`).
 
 **Commit hash**
 
-- To be recorded in the next entry (see `git log`).
+- `f97372f`
 
 **Remaining work**
 

@@ -13,12 +13,14 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.context.annotation.Import;
 
 /**
  * Starts the real application on a random port and checks the operational endpoints over HTTP, the
  * way an orchestrator or load balancer would call them.
  */
 @SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT)
+@Import(TestcontainersConfiguration.class)
 class ActuatorEndpointsTest {
 
   private final HttpClient client = HttpClient.newHttpClient();

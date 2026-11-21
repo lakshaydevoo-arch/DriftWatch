@@ -136,6 +136,9 @@ feature_drift_result(id, run_id FK, feature_name, feature_type, method,
 ```
 
 Schema migrations are managed with Flyway; tables are never modified by hand.
+Each table is added by the migration of the feature that first uses it (V1:
+`monitored_model`), and Hibernate only validates the schema. Primary keys
+are application-generated UUIDs.
 
 ## 7. API surface (planned, versioned under `/api/v1`)
 
