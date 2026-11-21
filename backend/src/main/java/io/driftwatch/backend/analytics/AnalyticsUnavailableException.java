@@ -6,7 +6,7 @@ package io.driftwatch.backend.analytics;
  */
 public final class AnalyticsUnavailableException extends AnalyticsException {
 
-  AnalyticsUnavailableException(String message, Throwable cause) {
+  public AnalyticsUnavailableException(String message, Throwable cause) {
     super(message, cause);
   }
 }

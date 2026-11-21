@@ -7,6 +7,115 @@ following session's commit (or read with `git log`).
 
 ---
 
+## 2026-11-21 — Milestone 2.6: reference registration workflow
+
+**Feature implemented**
+
+- `POST /api/v1/models/{id}/reference` (multipart `file` + optional JSON
+  `options`) and `GET /api/v1/models/{id}/reference` (current reference).
+  Responses include the inferred columns, row count, engine version, issues
+  and the dataset; the full profile stays in the database.
+- `V3__create_reference_profile.sql`: `reference_profile` with the profile and
+  issues as `JSONB` (shape checked with `jsonb_typeof`), positive row count,
+  one profile per dataset, and a **composite foreign key**
+  `(dataset_id, model_id, dataset_role) → dataset (id, model_id, role)`, so
+  the database guarantees that a reference points at a `REFERENCE` dataset of
+  the same model.
+- `ReferenceService.register`: check and store the file, then profile, with
+  no transaction open; then insert dataset + reference in one transaction.
+  Re-registration keeps history; the newest is current.
+- `DatasetService` split into `storeFile` (no transaction) and `record`
+  (`Propagation.MANDATORY`, so it cannot run outside the caller's
+  transaction); `ContentAddressedFileStore.resource`.
+- Error mapping: engine rejections pass through with the engine's own problem
+  type (422; 413 for size), unavailable → 503 + `Retry-After` (address logged,
+  not returned), contract violations → 502, plus `upload-too-large`,
+  `empty-upload`, `invalid-upload`, `reference-not-found` and the missing
+  `file` part. Multipart limit tied to `driftwatch.datasets.max-upload-size`.
+- Tests: `TestDatabase.clear` deletes tables in foreign-key order for all
+  test classes; `Multipart` builds request bodies. The `engine-contract`
+  workflow now runs every `*EngineContractTest`.
+
+**Design decisions**
+
+- **Synchronous profiling**, because registration is a one-off, interactive
+  action and the user wants to see the inferred schema. Monitoring runs (2.7)
+  will run in the background.
+- **Write only on success.** Rows appear only after profiling succeeds, so no
+  status column and no half-registered references. The cost is that failed
+  attempts are not recorded in the database (they are logged and returned to
+  the client).
+
+**Files changed**
+
+- `backend/src/main/resources/db/migration/V3__create_reference_profile.sql`
+- `backend/src/main/java/io/driftwatch/backend/reference/*` (7 files)
+- `backend/src/main/java/io/driftwatch/backend/dataset/{DatasetService,ContentAddressedFileStore}.java`
+- `backend/src/main/java/io/driftwatch/backend/analytics/{AnalyticsProtocolException,AnalyticsRejectedException,AnalyticsUnavailableException}.java` (public constructors)
+- `backend/src/main/java/io/driftwatch/backend/common/{ApiExceptionHandler,ProblemTypes}.java`
+- `backend/src/main/resources/application.yml`
+- Tests: `reference/{ReferenceApiTest,ReferenceUploadLimitTest,ReferenceRegistrationEngineContractTest}.java`,
+  `{TestDatabase,Multipart}.java`, updated `DatabaseSchemaTest`,
+  `DatasetServiceTest`, `ModelApiTest`
+- `.github/workflows/engine-contract.yml`, `backend/README.md`,
+  `ARCHITECTURE.md`, `DEVELOPMENT_ROADMAP.md`, `CHANGELOG.md`,
+  `DEVELOPMENT_LOG.md`
+
+**Tests executed** (Temurin 21.0.13, PostgreSQL 16.16, engine 0.1.0.dev0)
+
+- `./mvnw verify`: **124 passed, 12 skipped** (the engine contract tests), in
+  both alphabetical and reverse class order.
+  - `ReferenceApiTest` (20, mocked engine): 201 with `Location`, columns,
+    issues and SHA-256; the engine receives exactly the uploaded bytes and the
+    file name; the profile is stored unchanged and is queryable as `JSONB`; GET
+    equals POST; re-registration keeps history; options forwarded or omitted;
+    rejection pass-through with no rows; engine 413 → 413; 503 with
+    `Retry-After` and no internal address; 502 for a contract violation and for
+    a profile without `n_rows`; unknown model 404 without calling the engine;
+    empty file 400 without calling the engine; missing part; malformed and
+    non-object options; 415; `reference-not-found`.
+  - `ReferenceUploadLimitTest` (3): file-store limit, multipart limit, exact
+    limit accepted.
+- **Against the real engine** (`*EngineContractTest`): **12 passed**: end to
+  end registration with inferred numeric/categorical/identifier columns, GET
+  equal to POST, `JSONB` profile queried in SQL, options reach the engine
+  (`user_excluded`), real `invalid-csv` rejection with no rows, plus the 9
+  client contract tests. No tracebacks in the engine log.
+
+**Issues found and fixed during verification**
+
+- `DatabaseSchemaTest` listed migrations exactly and failed once V3 existed,
+  as intended; updated. The new foreign keys required deleting
+  `reference_profile` first in every cleanup, now centralised in
+  `TestDatabase.clear`.
+- Two test bugs of mine: re-stubbing with `when(mock.call())` invoked the
+  previous Mockito answer with null arguments (NPE), so I switched to
+  `doThrow/doAnswer().when(mock)`; and I expected monitored columns to omit
+  `excludedReason`, while the API (like `ModelResponse`) returns explicit
+  `null`.
+- Spotless kept re-wrapping test code between my edits; edits are now made
+  by position after reading the formatted file.
+
+**Known limitations**
+
+- Profiling is synchronous, so a very large file holds an HTTP request and a
+  server thread for up to the 5-minute read timeout.
+- Failed registration attempts are not stored (logged only).
+
+**Commit hash**
+
+- To be recorded in the next entry (see `git log`).
+
+**Remaining work**
+
+- 2.7 monitoring run lifecycle (`PENDING → RUNNING → SUCCEEDED/FAILED`) on a
+  bounded executor.
+
+**Open decisions**: license (MIT vs Apache-2.0); repository publication;
+optional rename of the `io.driftwatch` package.
+
+---
+
 ## 2026-11-21 — Milestone 2.5: analytics engine client
 
 **Feature implemented**
@@ -78,7 +187,7 @@ following session's commit (or read with `git log`).
 
 **Commit hash**
 
-- To be recorded in the next entry (see `git log`).
+- `c33fa43`
 
 **Remaining work**
 

@@ -6,7 +6,10 @@ import java.io.InputStream;
 import java.util.List;
 import java.util.UUID;
 import java.util.regex.Pattern;
+import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
@@ -57,12 +60,51 @@ public class DatasetService {
    */
   public Dataset store(UUID modelId, DatasetRole role, String originalFilename, InputStream content)
       throws IOException {
+    StoredUpload upload = storeFile(modelId, originalFilename, content);
+    return transactions.execute(status -> insert(upload, role));
+  }
+
+  /** A file that is in the store but not yet recorded as a dataset. */
+  public record StoredUpload(UUID modelId, String sha256, long byteSize, String originalFilename) {}
+
+  /**
+   * Steps 1 and 2 of {@link #store}: validate, check the model, store the file. No transaction is
+   * opened. Use with {@link #record} when work (such as profiling) must happen in between.
+   */
+  public StoredUpload storeFile(UUID modelId, String originalFilename, InputStream content)
+      throws IOException {
     validateFilename(originalFilename);
     models.get(modelId);
     ContentAddressedFileStore.StoredFile stored = files.store(content);
-    return transactions.execute(status ->
-        repository.saveAndFlush(
-            new Dataset(modelId, role, stored.sha256(), stored.byteSize(), originalFilename)));
+    return new StoredUpload(modelId, stored.sha256(), stored.byteSize(), originalFilename);
+  }
+
+  /**
+   * Step 3 of {@link #store}: records a stored file. Must run inside the caller's transaction, so
+   * the dataset row commits or rolls back together with whatever the caller writes.
+   */
+  @Transactional(propagation = Propagation.MANDATORY)
+  public Dataset record(StoredUpload upload, DatasetRole role) {
+    return insert(upload, role);
+  }
+
+  private Dataset insert(StoredUpload upload, DatasetRole role) {
+    return repository.saveAndFlush(
+        new Dataset(
+            upload.modelId(), role, upload.sha256(), upload.byteSize(), upload.originalFilename()));
+  }
+
+  /** The stored content of an upload, e.g. to send it to the analytics engine. */
+  public Resource resource(StoredUpload upload) {
+    return files.resource(upload.sha256());
+  }
+
+  /** A dataset by id. */
+  @Transactional(readOnly = true)
+  public Dataset get(UUID id) {
+    return repository
+        .findById(id)
+        .orElseThrow(() -> new IllegalStateException("dataset " + id + " does not exist"));
   }
 
   /** All datasets of a model, oldest first. */

@@ -2,6 +2,7 @@ package io.driftwatch.backend.model;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.driftwatch.backend.TestDatabase;
 import io.driftwatch.backend.TestcontainersConfiguration;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -45,9 +46,7 @@ class ModelApiTest {
   @BeforeEach
   @AfterEach
   void emptyRegistry() {
-    // Datasets reference models (ON DELETE RESTRICT), so delete them first.
-    jdbc.update("DELETE FROM dataset");
-    jdbc.update("DELETE FROM monitored_model");
+    TestDatabase.clear(jdbc);
   }
 
   private URI uri(String path) {

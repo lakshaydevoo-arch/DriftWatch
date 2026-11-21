@@ -12,6 +12,8 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import java.util.regex.Pattern;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
 
 /**
  * Stores files under their SHA-256 hash: {@code <root>/ab/cd/abcd…}.
@@ -106,6 +108,11 @@ public class ContentAddressedFileStore {
   /** Opens a stored file for reading. */
   public InputStream open(String sha256) throws IOException {
     return Files.newInputStream(pathOf(sha256));
+  }
+
+  /** A stored file as a Spring {@link Resource}, e.g. for a multipart upload. */
+  public Resource resource(String sha256) {
+    return new FileSystemResource(pathOf(sha256));
   }
 
   public boolean contains(String sha256) {

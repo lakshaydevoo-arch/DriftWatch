@@ -74,7 +74,7 @@ jobs:
           DRIFTWATCH_ANALYTICS_URL: http://127.0.0.1:8000
         run: >-
           ./mvnw --batch-mode --no-transfer-progress
-          -Dtest=AnalyticsEngineContractTest -Dsurefire.failIfNoSpecifiedTests=false test
+          -Dtest='*EngineContractTest' -Dsurefire.failIfNoSpecifiedTests=false test
 
       - name: Engine log
         if: always()

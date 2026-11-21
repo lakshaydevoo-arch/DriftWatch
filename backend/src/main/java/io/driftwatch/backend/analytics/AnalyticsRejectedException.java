@@ -15,7 +15,7 @@ public final class AnalyticsRejectedException extends AnalyticsException {
   private final String detail;
   private final List<Map<String, Object>> errors;
 
-  AnalyticsRejectedException(
+  public AnalyticsRejectedException(
       int status, String kind, String detail, List<Map<String, Object>> errors) {
     super("Analytics engine rejected the request (" + status + " " + kind + "): " + detail, null);
     this.status = status;

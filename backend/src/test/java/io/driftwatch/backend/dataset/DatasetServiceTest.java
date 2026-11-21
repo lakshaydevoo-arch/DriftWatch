@@ -3,6 +3,7 @@ package io.driftwatch.backend.dataset;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import io.driftwatch.backend.TestDatabase;
 import io.driftwatch.backend.TestcontainersConfiguration;
 import io.driftwatch.backend.model.ModelNotFoundException;
 import io.driftwatch.backend.model.ModelService;
@@ -53,8 +54,7 @@ class DatasetServiceTest {
   /** These tests commit; leave the shared database empty for other test classes. */
   @AfterEach
   void deleteAll() {
-    jdbc.update("DELETE FROM dataset");
-    jdbc.update("DELETE FROM monitored_model");
+    TestDatabase.clear(jdbc);
   }
 
   private static InputStream stream(byte[] data) {

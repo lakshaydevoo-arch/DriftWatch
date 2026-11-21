@@ -124,8 +124,9 @@ monitored_model(id, name UNIQUE, task_type, target_column, prediction_column,
                 created_at)
 dataset(id, model_id FK, role, sha256, byte_size, original_filename,
         created_at)                      -- V2; row_count, status, schema: 2.6
-reference_profile(id, dataset_id FK UNIQUE, engine_version, profile JSONB,
-                  created_at)
+reference_profile(id, model_id FK, dataset_id UNIQUE, engine_version,
+                  row_count, profile JSONB, issues JSONB, created_at)
+                  -- V3; FK (dataset_id, model_id, 'REFERENCE') -> dataset
 monitoring_run(id, model_id FK, reference_dataset_id FK, current_dataset_id FK,
                status, config JSONB, engine_version, error_message,
                created_at, started_at, finished_at)
@@ -147,7 +148,8 @@ are application-generated UUIDs.
 | `POST` | `/api/v1/models` | Register a model (implemented; contract in [backend/README.md](backend/README.md#model-registry-api)) |
 | `GET`  | `/api/v1/models/{id}` | Get model details (implemented) |
 | `GET`  | `/api/v1/models` | List models, paginated (implemented) |
-| `POST` | `/api/v1/models/{id}/reference` | Upload reference dataset |
+| `POST` | `/api/v1/models/{id}/reference` | Upload reference dataset (implemented; [contract](backend/README.md#reference-registration-api)) |
+| `GET`  | `/api/v1/models/{id}/reference` | Current reference and its inferred schema (implemented) |
 | `POST` | `/api/v1/models/{id}/runs` | Upload current batch and start a run |
 | `GET`  | `/api/v1/runs/{runId}` | Run status and summary |
 | `GET`  | `/api/v1/runs/{runId}/features` | Per-feature drift results |

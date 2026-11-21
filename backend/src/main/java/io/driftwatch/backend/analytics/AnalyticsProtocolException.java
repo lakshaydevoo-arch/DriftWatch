@@ -10,4 +10,9 @@ public final class AnalyticsProtocolException extends AnalyticsException {
   AnalyticsProtocolException(String message, Throwable cause) {
     super(message, cause);
   }
+
+  /** For callers that find a contract violation in a successful response's content. */
+  public AnalyticsProtocolException(String message) {
+    super(message, null);
+  }
 }

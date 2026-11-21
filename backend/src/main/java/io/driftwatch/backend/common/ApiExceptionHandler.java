@@ -1,7 +1,15 @@
 package io.driftwatch.backend.common;
 
+import io.driftwatch.backend.analytics.AnalyticsProtocolException;
+import io.driftwatch.backend.analytics.AnalyticsRejectedException;
+import io.driftwatch.backend.analytics.AnalyticsUnavailableException;
+import io.driftwatch.backend.dataset.EmptyUploadException;
+import io.driftwatch.backend.dataset.InvalidUploadException;
+import io.driftwatch.backend.dataset.UploadTooLargeException;
 import io.driftwatch.backend.model.ModelNameTakenException;
 import io.driftwatch.backend.model.ModelNotFoundException;
+import io.driftwatch.backend.reference.InvalidOptionsException;
+import io.driftwatch.backend.reference.ReferenceNotFoundException;
 import java.net.URI;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -22,6 +30,8 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 import tools.jackson.databind.DatabindException;
 import tools.jackson.databind.exc.InvalidFormatException;
@@ -134,6 +144,117 @@ class ApiExceptionHandler extends ResponseEntityExceptionHandler {
   ProblemDetail handleNameTaken(ModelNameTakenException ex) {
     return problem(
         HttpStatus.CONFLICT, ProblemTypes.MODEL_NAME_TAKEN, "Model name taken", ex.getMessage());
+  }
+
+  @ExceptionHandler(ReferenceNotFoundException.class)
+  ProblemDetail handleReferenceNotFound(ReferenceNotFoundException ex) {
+    return problem(
+        HttpStatus.NOT_FOUND,
+        ProblemTypes.REFERENCE_NOT_FOUND,
+        "Reference not found",
+        ex.getMessage());
+  }
+
+  /**
+   * The engine rejected the uploaded data: pass its problem type, detail and errors through, so the
+   * client sees exactly why (e.g. {@code invalid-csv: duplicate column names}).
+   */
+  @ExceptionHandler(AnalyticsRejectedException.class)
+  ProblemDetail handleRejected(AnalyticsRejectedException ex) {
+    HttpStatus status =
+        ex.getStatus() == HttpStatus.CONTENT_TOO_LARGE.value()
+            ? HttpStatus.CONTENT_TOO_LARGE
+            : HttpStatus.UNPROCESSABLE_CONTENT;
+    ProblemDetail problem =
+        problem(status, ProblemTypes.of(ex.getKind()), "Rejected by analysis", ex.getDetail());
+    if (!ex.getErrors().isEmpty()) {
+      problem.setProperty("errors", ex.getErrors());
+    }
+    return problem;
+  }
+
+  @ExceptionHandler(AnalyticsUnavailableException.class)
+  ResponseEntity<ProblemDetail> handleUnavailable(AnalyticsUnavailableException ex) {
+    // The message names the engine's address; log it, do not return it.
+    log.warn("Analytics engine unavailable: {}", ex.getMessage());
+    return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+        .header(HttpHeaders.RETRY_AFTER, "30")
+        .body(
+            problem(
+                HttpStatus.SERVICE_UNAVAILABLE,
+                ProblemTypes.ANALYTICS_UNAVAILABLE,
+                "Analysis unavailable",
+                "The analytics engine is unavailable; try again later."));
+  }
+
+  @ExceptionHandler(AnalyticsProtocolException.class)
+  ProblemDetail handleProtocol(AnalyticsProtocolException ex) {
+    log.error("Analytics engine broke the API contract", ex);
+    return problem(
+        HttpStatus.BAD_GATEWAY,
+        ProblemTypes.ANALYTICS_PROTOCOL_ERROR,
+        "Analysis failed",
+        "The analytics engine returned an unexpected response.");
+  }
+
+  @ExceptionHandler(UploadTooLargeException.class)
+  ProblemDetail handleTooLarge(UploadTooLargeException ex) {
+    return problem(
+        HttpStatus.CONTENT_TOO_LARGE,
+        ProblemTypes.UPLOAD_TOO_LARGE,
+        "Upload too large",
+        ex.getMessage());
+  }
+
+  @Override
+  protected ResponseEntity<Object> handleMaxUploadSizeExceededException(
+      MaxUploadSizeExceededException ex,
+      HttpHeaders headers,
+      HttpStatusCode status,
+      WebRequest request) {
+    return ResponseEntity.status(HttpStatus.CONTENT_TOO_LARGE)
+        .body(
+            problem(
+                HttpStatus.CONTENT_TOO_LARGE,
+                ProblemTypes.UPLOAD_TOO_LARGE,
+                "Upload too large",
+                "The upload exceeds the size limit."));
+  }
+
+  @ExceptionHandler(EmptyUploadException.class)
+  ProblemDetail handleEmpty(EmptyUploadException ex) {
+    return problem(
+        HttpStatus.BAD_REQUEST, ProblemTypes.EMPTY_UPLOAD, "Empty upload", ex.getMessage());
+  }
+
+  @ExceptionHandler(InvalidUploadException.class)
+  ProblemDetail handleInvalidUpload(InvalidUploadException ex) {
+    return problem(
+        HttpStatus.BAD_REQUEST, ProblemTypes.INVALID_UPLOAD, "Invalid upload", ex.getMessage());
+  }
+
+  @ExceptionHandler(InvalidOptionsException.class)
+  ProblemDetail handleInvalidOptions(InvalidOptionsException ex) {
+    return problem(
+        HttpStatus.BAD_REQUEST,
+        ProblemTypes.INVALID_PARAMETER,
+        "Invalid parameter",
+        ex.getMessage());
+  }
+
+  @Override
+  protected ResponseEntity<Object> handleMissingServletRequestPart(
+      MissingServletRequestPartException ex,
+      HttpHeaders headers,
+      HttpStatusCode status,
+      WebRequest request) {
+    return ResponseEntity.badRequest()
+        .body(
+            problem(
+                HttpStatus.BAD_REQUEST,
+                ProblemTypes.INVALID_REQUEST,
+                "Invalid request",
+                "Required part '" + ex.getRequestPartName() + "' is missing."));
   }
 
   /** Last resort: log the details, return nothing internal to the client. */

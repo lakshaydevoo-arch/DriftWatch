@@ -35,8 +35,7 @@ class DatabaseSchemaTest {
    */
   @BeforeEach
   void emptyTables() {
-    jdbc.update("DELETE FROM dataset");
-    jdbc.update("DELETE FROM monitored_model");
+    TestDatabase.clear(jdbc);
   }
 
   private void insertModel(String name, String taskType) {
@@ -56,7 +55,9 @@ class DatabaseSchemaTest {
     assertThat(history)
         .extracting(h -> h.get("version"), h -> h.get("description"), h -> h.get("success"))
         .containsExactly(
-            tuple("1", "create monitored model", true), tuple("2", "create dataset", true));
+            tuple("1", "create monitored model", true),
+            tuple("2", "create dataset", true),
+            tuple("3", "create reference profile", true));
   }
 
   @Test

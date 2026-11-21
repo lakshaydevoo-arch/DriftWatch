@@ -54,3 +54,6 @@ first release.
 - `backend`: analytics engine client with connect/read timeouts
   (`DRIFTWATCH_ANALYTICS_BASE_URL`) and distinct rejected / unavailable /
   protocol errors; contract against the real engine checked in CI.
+- `backend`: reference registration, `POST`/`GET /api/v1/models/{id}/reference`:
+  uploads a CSV, profiles it with the engine and returns the inferred schema;
+  engine rejections reach the client with the engine's problem type.

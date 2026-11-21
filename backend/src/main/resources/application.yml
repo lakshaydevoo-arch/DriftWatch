@@ -17,6 +17,14 @@ spring:
     # No lazy loading during view rendering: transactions end in the service layer.
     open-in-view: false
 
+  servlet:
+    multipart:
+      # First line of defence for uploads; the file store enforces the same
+      # limit while streaming (driftwatch.datasets.max-upload-size).
+      max-file-size: ${driftwatch.datasets.max-upload-size}
+      # File plus small form fields (options) and multipart framing.
+      max-request-size: 101MB
+
   jackson:
     deserialization:
       # Reject unknown JSON fields: a typo such as "tasktype" must be an error,

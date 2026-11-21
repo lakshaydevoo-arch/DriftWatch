@@ -16,10 +16,20 @@ public final class ProblemTypes {
   public static final URI MODEL_NOT_FOUND = of("model-not-found");
   public static final URI MODEL_NAME_TAKEN = of("model-name-taken");
   public static final URI INTERNAL_ERROR = of("internal-error");
+  public static final URI REFERENCE_NOT_FOUND = of("reference-not-found");
+  public static final URI UPLOAD_TOO_LARGE = of("upload-too-large");
+  public static final URI EMPTY_UPLOAD = of("empty-upload");
+  public static final URI INVALID_UPLOAD = of("invalid-upload");
+  public static final URI ANALYTICS_UNAVAILABLE = of("analytics-unavailable");
+  public static final URI ANALYTICS_PROTOCOL_ERROR = of("analytics-protocol-error");
 
   private ProblemTypes() {}
 
-  private static URI of(String kind) {
+  /**
+   * A problem type by kind. Used to pass the analytics engine's problem types (e.g. {@code
+   * invalid-csv}) through unchanged, since both services share the scheme.
+   */
+  public static URI of(String kind) {
     return URI.create(PREFIX + kind);
   }
 }
