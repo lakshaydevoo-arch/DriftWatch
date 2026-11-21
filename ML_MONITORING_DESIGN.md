@@ -411,3 +411,33 @@ All synthetic generators live in the repository
 (`analytics/src/driftwatch_analytics/synthetic/`) and take an explicit seeded
 `numpy.random.Generator`, so test data is reproducible and nothing is
 hardcoded.
+
+### 10.1 Results
+
+**No-drift controls on hard shapes** (`tests/drift/test_no_drift_controls.py`).
+The noise floor's multinomial model is weakest for skewed, tied and
+many-category data, so it was checked on: log-normal (σ = 1.5), Student t
+(2 df), bimodal, Poisson counts, 70% zeros, values rounded to 0.1, a 95/5
+binary feature, 20 categories with 15 rare, and 60 uniform categories.
+Measured false-alarm rates (300 trials, 2,000-row reference): **0–3.3% at
+50 rows** (worst: the very skewed log-normal), 0–1.3% at 200 and 1,000 rows.
+
+**Real data** (`tests/test_real_data.py`, scikit-learn's bundled datasets).
+The ground truth for "this feature really changed" is an independent
+two-sample KS test on the full data, not on the profile's sample.
+
+| Check | Result |
+|-------|--------|
+| Random halves, breast cancer (30 features, 284 vs. 285 rows) | 0 false alarms in 1,200 feature checks |
+| Random halves, diabetes (11 features, 221 rows each) | 1.4% false alarms |
+| Random halves, wine (14 features, 89 rows each) | 2.4% false alarms (small batches, §3.4) |
+| Breast cancer, benign reference vs. malignant batch | All 25 features with Cohen's d ≥ 0.5 flagged; every flagged feature has full-data KS p < 0.05; features with KS p > 0.1 not flagged |
+| Same split, `fractal dimension error` | Flagged although its mean barely moves (d = 0.17): its spread shrinks to 0.69×, and PSI compares whole distributions |
+| Diabetes, low vs. high BMI | `bmi` and the progression target flagged; `sex`, independent of the split (χ² p = 0.35), not flagged |
+| Iris without setosa | `species` and petal measurements flagged |
+| Wine without class 2 | Integer-coded `target` inferred as categorical and flagged |
+| 15% missing values injected into a real column | `missing_rate_change` flag, no drift verdict |
+
+**What this does not show.** These splits produce large, clean shifts. Real
+production drift is often gradual and mixed with seasonality; that needs
+time-series evaluation with run history (Milestone 4).

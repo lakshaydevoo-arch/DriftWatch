@@ -38,7 +38,7 @@ analytics/
 | pandas | CSV parsing, column handling |
 | numpy | Quantiles, binning, sampling |
 | scipy (+ scipy-stubs for mypy) | KS, chi-square, Wasserstein, Jensen–Shannon |
-| scikit-learn | Performance metrics; bundled real datasets for tests |
+| scikit-learn | Bundled real datasets for tests (dev only for now); performance metrics in Milestone 3 |
 | pytest, httpx2 | Tests (`httpx2` is the transport Starlette's test client requires) |
 | ruff, mypy | Linting/formatting and type checking (dev only) |
 

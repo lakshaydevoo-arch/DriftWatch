@@ -8,8 +8,7 @@ version = "0.1.0.dev0"
 description = "Stateless statistical engine for DriftWatch drift and performance monitoring"
 readme = "README.md"
 requires-python = ">=3.12"
-# Only dependencies that the code actually imports are listed. scikit-learn
-# is added in the task that first uses it.
+# Only dependencies that the code actually imports are listed.
 dependencies = [
     "fastapi~=0.165",
     "uvicorn~=0.54",
@@ -28,6 +27,9 @@ dev = [
     "mypy~=2.4",
     "pandas-stubs~=3.1.0",
     "scipy-stubs~=1.18.1",
+    # Bundled real datasets for tests (offline). Becomes a runtime dependency
+    # with performance metrics in Milestone 3.
+    "scikit-learn~=1.9",
 ]
 
 [tool.setuptools.packages.find]
@@ -60,3 +62,9 @@ select = [
 python_version = "3.12"
 strict = true
 files = ["src", "tests", "scripts"]
+
+[[tool.mypy.overrides]]
+# scikit-learn ships no type information; it is only used in tests, through
+# a typed helper that checks what it returns.
+module = ["sklearn.*"]
+ignore_missing_imports = true

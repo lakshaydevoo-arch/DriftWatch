@@ -7,6 +7,74 @@ following session's commit (or read with `git log`).
 
 ---
 
+## 2026-11-21 — Milestone 1.9: no-drift controls and real-data tests
+
+**Feature implemented** (tests only, no behaviour change)
+
+- `tests/drift/test_no_drift_controls.py`: no-drift false-alarm checks on
+  9 distribution shapes chosen to stress the noise floor's multinomial
+  model (skewed, heavy-tailed, bimodal, tied, zero-inflated, rounded, 95/5,
+  rare-tail and 60-category). Bound: at most 10 alarms in 120 trials.
+- `tests/test_real_data.py`: breast cancer, diabetes (unscaled), iris and
+  wine from scikit-learn's bundled files (offline). Random-halves controls;
+  biased splits with an independent full-data KS test and Cohen's d as
+  ground truth; type inference on raw real columns; missing values on real
+  data; one full HTTP round trip on real data.
+- scikit-learn 1.9 added as a **dev** dependency (tests only); it becomes a
+  runtime dependency with performance metrics in Milestone 3. A mypy
+  override covers only `sklearn.*`, which has no type information, and the
+  tests load data through a typed helper that checks with `isinstance`.
+
+**Method:** every bound was set after measuring, and the measurements are
+written next to each assertion.
+
+**Files changed**
+
+- `analytics/tests/drift/test_no_drift_controls.py`, `analytics/tests/test_real_data.py`
+- `analytics/pyproject.toml`, `analytics/README.md`
+- `ML_MONITORING_DESIGN.md` (new §10.1 results), `DEVELOPMENT_ROADMAP.md`,
+  `DEVELOPMENT_LOG.md`. No changelog entry: no user-facing change.
+
+**Tests executed** (Python 3.13.15)
+
+- `pytest`: 317 passed (21 new) in about 10 s.
+- Exploration before writing assertions (300 trials per cell): stress shapes
+  0–3.3% false alarms at 50 rows and 0–1.3% at 200 and 1,000; breast cancer
+  halves 0/1,200; diabetes halves 6/440; wine halves 20/840.
+- `ruff format --check .`, `ruff check .`, `mypy` (strict): clean.
+
+**Findings**
+
+- On the benign-vs-malignant split, `mean fractal dimension` is flagged
+  (PSI 0.205, just over 0.2) although its mean is nearly unchanged
+  (d = 0.03). Cohen's d alone is the wrong ground truth: PSI also reacts to
+  changes in spread and shape. An independent full-data KS test confirms a
+  modest real difference (p = 0.02), so the tests use KS evidence instead.
+- The no-drift rate is highest (3.3%) for very skewed data at 50 rows, in
+  line with the documented ~2% small-batch limitation.
+
+**Issues found and fixed during verification**
+
+- I first wrote a confusing seed expression that mentioned `hash()`, which
+  is not stable across processes; replaced with fixed per-case seeds before
+  running.
+- Removed a fixture that claimed to check the datasets were offline but only
+  inspected a module name; the docstring states the fact instead.
+- mypy: scikit-learn has no type information (handled as above).
+
+**Commit hash**
+
+- To be recorded in the next entry (see `git log`).
+
+**Remaining work**
+
+- 1.10 GitHub Actions workflow for `analytics` (lint, type check, tests),
+  which completes Milestone 1.
+
+**Open decisions**: license (MIT vs Apache-2.0).
+
+---
+
 ## 2026-11-21 — Milestone 1.8: `/v1/profile` and `/v1/drift` endpoints
 
 **Feature implemented**
@@ -79,7 +147,7 @@ following session's commit (or read with `git log`).
 
 **Commit hash**
 
-- To be recorded in the next entry (see `git log`).
+- `b26ab31`
 
 **Remaining work**
 

@@ -39,7 +39,7 @@ Depends on: nothing.
   - ✅ 1.7c Sample-size-aware noise floor (approved by maintainer)
 - ✅ 1.8 `/v1/profile` and `/v1/drift` endpoints with request validation +
   API tests
-- ⏳ 1.9 False-positive-rate tests on no-drift controls; real-data tests on
+- ✅ 1.9 False-positive-rate tests on no-drift controls; real-data tests on
   scikit-learn bundled datasets
 - ⏳ 1.10 GitHub Actions workflow for `analytics` (lint, type check, tests)
 
