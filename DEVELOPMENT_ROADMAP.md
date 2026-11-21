@@ -14,7 +14,7 @@ any other component.
 - ✅ Directory structure for `analytics/`, `backend/`, `frontend/`
 - ✅ Root `.gitignore` and `.editorconfig`
 
-## Milestone 1 — Analytics engine (Python) 🔄
+## Milestone 1 — Analytics engine (Python) ✅
 
 Depends on: nothing.
 
@@ -41,7 +41,7 @@ Depends on: nothing.
   API tests
 - ✅ 1.9 False-positive-rate tests on no-drift controls; real-data tests on
   scikit-learn bundled datasets
-- ⏳ 1.10 GitHub Actions workflow for `analytics` (lint, type check, tests)
+- ✅ 1.10 GitHub Actions workflow for `analytics` (lint, type check, tests)
 
 ## Milestone 2 — Platform backend (Spring Boot) ⏳
 

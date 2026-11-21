@@ -47,7 +47,10 @@ docs: document monitoring API contracts
 
 ## Quality checks per module
 
-These commands become available as each module is scaffolded.
+These commands become available as each module is scaffolded. CI runs the
+same commands (`.github/workflows/`), so a change that passes locally should
+pass in CI. If you change dependencies, regenerate the module's lock file
+(see `analytics/README.md`) in the same commit.
 
 | Module | Format / lint | Tests |
 |--------|---------------|-------|

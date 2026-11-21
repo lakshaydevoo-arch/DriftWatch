@@ -7,6 +7,66 @@ following session's commit (or read with `git log`).
 
 ---
 
+## 2026-11-21 — Milestone 1.10: CI for the analytics engine (Milestone 1 complete)
+
+**Feature implemented**
+
+- `.github/workflows/analytics.yml`: on pushes to `main` and pull requests
+  touching `analytics/`, plus manual runs. Matrix: Python 3.12, 3.13, 3.14
+  on `ubuntu-24.04`. Steps: install from the lock file, `pip check`,
+  `ruff format --check`, `ruff check`, `mypy`, `pytest`.
+- Hardening: read-only `contents` permission, `persist-credentials: false`,
+  actions pinned to commit SHAs (`actions/checkout` v7.0.1,
+  `actions/setup-python` v7.1.0; lightweight tags, so the tag SHA is the
+  commit SHA, checked with `git ls-remote`), a 15-minute timeout and
+  cancellation of superseded runs.
+- `analytics/requirements-dev.lock`: universal lock of all runtime and dev
+  dependencies (`uv pip compile --universal`), closing the reproducibility
+  gap noted in 1.1. CI installs exactly the versions tested locally.
+
+**Files changed**
+
+- `.github/workflows/analytics.yml`, `analytics/requirements-dev.lock`
+- `analytics/README.md` (setup, lock, CI), `CONTRIBUTING.md`, `README.md`
+  (status), `ARCHITECTURE.md` (layout), `DEVELOPMENT_ROADMAP.md`,
+  `DEVELOPMENT_LOG.md`. No changelog entry: contributor tooling, not a
+  user-facing change.
+
+**Tests executed**
+
+- Replayed the CI steps exactly in fresh virtualenvs for **Python 3.12.15,
+  3.13.15 and 3.14.10**: lock install, `pip check` clean, format, lint and
+  strict mypy clean, **317 passed** on each. This is the first verification
+  on 3.12 (the declared minimum) and 3.14.
+- Workflow structure: parsed with Ruby's built-in YAML and checked triggers,
+  identical path filters, permissions, matrix, SHA pins, credentials,
+  working directory and timeout.
+
+**Not verified**
+
+- The workflow has **not run on GitHub**: there is no remote, and pushing
+  needs maintainer approval. The local replay was on macOS/arm64, while CI
+  uses Linux/x86-64 wheels.
+- `actionlint` and `zizmor` were **not run**. Running them through `uvx`
+  (download from PyPI and execute) was blocked by this session's permission
+  policy, and I did not work around it. They can be run once they are
+  approved or installed.
+
+**Commit hash**
+
+- To be recorded in the next entry (see `git log`).
+
+**Remaining work**
+
+- Milestone 2: Spring Boot backend, starting with 2.1 (Maven scaffold,
+  Java 21, Spotless, Actuator health, CI job).
+- First CI run on GitHub after the repository is pushed.
+
+**Open decisions**: license (MIT vs Apache-2.0); when and where to push
+the repository.
+
+---
+
 ## 2026-11-21 — Milestone 1.9: no-drift controls and real-data tests
 
 **Feature implemented** (tests only, no behaviour change)
@@ -64,7 +124,7 @@ written next to each assertion.
 
 **Commit hash**
 
-- To be recorded in the next entry (see `git log`).
+- `979676f`
 
 **Remaining work**
 

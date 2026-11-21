@@ -1,0 +1,67 @@
+# Lint, type-check and test the analytics engine.
+#
+# Runs only when analytics/ or this file changes. Dependencies come from
+# analytics/requirements-dev.lock, so CI uses exactly the versions that were
+# tested locally. Actions are pinned to commit SHAs (tags can be moved).
+name: analytics
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "analytics/**"
+      - ".github/workflows/analytics.yml"
+  pull_request:
+    paths:
+      - "analytics/**"
+      - ".github/workflows/analytics.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: analytics-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: analytics
+
+jobs:
+  check:
+    name: Python ${{ matrix.python-version }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: analytics/requirements-dev.lock
+
+      - name: Install locked dependencies
+        run: |
+          python -m pip install -r requirements-dev.lock
+          python -m pip install --no-deps -e .
+          python -m pip check
+
+      - name: Format
+        run: ruff format --check .
+
+      - name: Lint
+        run: ruff check .
+
+      - name: Type check
+        run: mypy
+
+      - name: Test
+        run: pytest

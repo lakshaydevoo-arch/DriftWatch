@@ -5,8 +5,10 @@ production data against a model's reference data to detect **data drift**,
 **prediction drift** and **performance degradation**, using documented,
 reproducible statistical methods.
 
-> **Project status: early development (Milestone 0).** The architecture and
-> monitoring design are defined; no application code is implemented yet.
+> **Project status: early development.** Milestone 1 is complete: the
+> [analytics engine](analytics/) infers schemas, builds reference profiles and
+> detects numeric and categorical drift over an HTTP API, with CI on Python
+> 3.12–3.14. The Spring Boot backend and the dashboard are next.
 > See [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md) for progress.
 
 ## What it will do

@@ -45,7 +45,7 @@ analytics/
 Only packages that the code currently imports are declared in
 [`pyproject.toml`](pyproject.toml); SciPy and scikit-learn are added by the
 tasks that first need them. `pandas-stubs` is a dev dependency so strict mypy
-can type-check pandas code. Python 3.12+.
+can type-check pandas code. Python 3.12+ (tested on 3.12, 3.13 and 3.14).
 
 ## Local setup
 
@@ -53,7 +53,23 @@ can type-check pandas code. Python 3.12+.
 cd analytics
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -e ".[dev]"
+pip install -r requirements-dev.lock   # exact versions used by CI
+pip install --no-deps -e .
+```
+
+`pip install -e ".[dev]"` also works, but resolves the latest compatible
+versions instead of the locked ones.
+
+### Dependency lock
+
+[`requirements-dev.lock`](requirements-dev.lock) pins every runtime and dev
+dependency. It is resolved for all supported Python versions at once
+(`--universal`), so one file serves the whole CI matrix. After changing
+dependencies in `pyproject.toml`, regenerate it and commit both files:
+
+```bash
+uv pip compile pyproject.toml --extra dev --universal --python-version 3.12 \
+  --no-header --annotation-style line -o requirements-dev.lock
 ```
 
 ## Run
@@ -67,6 +83,10 @@ curl localhost:8000/health
 Interactive API docs: <http://localhost:8000/docs>.
 
 ## Checks
+
+CI ([`.github/workflows/analytics.yml`](../.github/workflows/analytics.yml))
+runs these on Python 3.12, 3.13 and 3.14 for every push to `main` and every
+pull request that touches `analytics/`:
 
 ```bash
 pytest                 # tests; warnings are treated as errors
