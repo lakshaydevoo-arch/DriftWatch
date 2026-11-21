@@ -7,8 +7,9 @@ reproducible statistical methods.
 
 > **Project status: early development.** Milestone 1 is complete: the
 > [analytics engine](analytics/) infers schemas, builds reference profiles and
-> detects numeric and categorical drift over an HTTP API, with CI on Python
-> 3.12–3.14. The Spring Boot backend and the dashboard are next.
+> detects numeric and categorical drift over an HTTP API. A CI workflow for
+> Python 3.12–3.14 is defined (verified locally; it runs on GitHub once the
+> repository is published). The Spring Boot backend and the dashboard are next.
 > See [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md) for progress.
 
 ## What it will do
