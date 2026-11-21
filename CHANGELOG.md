@@ -41,3 +41,5 @@ first release.
 - `analytics`: `POST /v1/profile` and `POST /v1/drift` endpoints with
   multipart uploads, a dataset-level drift summary, upload size limits
   (`DRIFTWATCH_MAX_UPLOAD_BYTES`) and RFC 9457 problem-details errors.
+- `backend`: Spring Boot 4.2 application (Java 21) with health, liveness,
+  readiness and build-info endpoints; other Actuator endpoints stay unexposed.

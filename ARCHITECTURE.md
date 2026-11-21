@@ -189,7 +189,7 @@ DriftWatch/
 ├── analytics/      Python FastAPI statistical engine (stateless)
 ├── backend/        Spring Boot API, persistence, orchestration
 ├── frontend/       React + TypeScript dashboard
-├── .github/        CI workflows (analytics.yml)
+├── .github/        CI workflows (analytics.yml, backend.yml)
 ├── ARCHITECTURE.md
 ├── ML_MONITORING_DESIGN.md
 ├── DEVELOPMENT_ROADMAP.md

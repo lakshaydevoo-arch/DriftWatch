@@ -1,0 +1,50 @@
+# Build, format-check and test the Spring Boot backend.
+#
+# Runs only when backend/ or this file changes. `./mvnw verify` compiles,
+# runs the tests and fails on unformatted code (Spotless is bound to verify).
+# The Maven wrapper pins Maven 3.10.1 and checks the download's SHA-256.
+# Actions are pinned to commit SHAs (tags can be moved).
+name: backend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend.yml"
+  pull_request:
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backend-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: backend
+
+jobs:
+  verify:
+    name: Java 21
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+          cache-dependency-path: backend/pom.xml
+
+      - name: Verify (compile, test, format check)
+        run: ./mvnw --batch-mode --no-transfer-progress verify

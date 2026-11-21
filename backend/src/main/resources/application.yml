@@ -1,0 +1,24 @@
+spring:
+  application:
+    name: driftwatch-backend
+
+management:
+  endpoints:
+    web:
+      exposure:
+        # Only what operators and orchestrators need. Other Actuator endpoints
+        # (env, beans, configprops, ...) can leak configuration and stay off.
+        include: health, info
+  endpoint:
+    health:
+      # Component details (e.g. database host) are not shown to anonymous callers.
+      show-details: never
+      # /actuator/health/liveness and /readiness for container orchestrators.
+      probes:
+        enabled: true
+  info:
+    # Do not publish the server's Java/OS details; build info is enough.
+    java:
+      enabled: false
+    os:
+      enabled: false

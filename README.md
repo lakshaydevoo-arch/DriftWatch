@@ -9,7 +9,8 @@ reproducible statistical methods.
 > [analytics engine](analytics/) infers schemas, builds reference profiles and
 > detects numeric and categorical drift over an HTTP API. A CI workflow for
 > Python 3.12–3.14 is defined (verified locally; it runs on GitHub once the
-> repository is published). The Spring Boot backend and the dashboard are next.
+> repository is published). Milestone 2, the Spring Boot backend, has started
+> with its scaffold and health endpoints; the dashboard comes later.
 > See [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md) for progress.
 
 ## What it will do
@@ -38,7 +39,7 @@ and limitations: [ML_MONITORING_DESIGN.md](ML_MONITORING_DESIGN.md).
 
 ## Prerequisites (for upcoming milestones)
 
-- Java 21 (JDK) and Maven 3.9+
+- Java 21 (JDK); Maven is downloaded by the backend's wrapper (`./mvnw`)
 - Python 3.12+
 - Node.js 20+ and npm
 - PostgreSQL 16 (or Docker)

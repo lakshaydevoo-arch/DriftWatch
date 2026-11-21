@@ -43,11 +43,11 @@ Depends on: nothing.
   scikit-learn bundled datasets
 - ✅ 1.10 GitHub Actions workflow for `analytics` (lint, type check, tests)
 
-## Milestone 2 — Platform backend (Spring Boot) ⏳
+## Milestone 2 — Platform backend (Spring Boot) 🔄
 
 Depends on: Milestone 1 API contracts (1.8).
 
-- ⏳ 2.1 Maven project scaffold (Java 21), Spotless, Actuator health, CI job
+- ✅ 2.1 Maven project scaffold (Java 21), Spotless, Actuator health, CI job
 - ⏳ 2.2 PostgreSQL + Flyway baseline migration; Testcontainers setup
 - ⏳ 2.3 Model registry API (`/api/v1/models`) with validation and
   Problem Details errors

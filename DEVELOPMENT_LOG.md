@@ -7,6 +7,79 @@ following session's commit (or read with `git log`).
 
 ---
 
+## 2026-11-21 — Milestone 2.1: backend scaffold
+
+**Feature implemented**
+
+- Maven project `backend/`: Spring Boot **4.2.0** (newest GA on Maven
+  Central; 4.1.3 was the newest patch of the previous line), Java 21 via
+  `java.version` (compiler `release` 21), `spring-boot-starter-webmvc` and
+  `-actuator`.
+- Maven wrapper 3.3.4, script-only (no binary jar committed), pinned to
+  Maven **3.10.1** with `distributionSha256Sum`. Before pinning, the
+  downloaded zip's SHA-512 was checked against Maven Central's published
+  checksum; then the wrapper cache was cleared and a fresh download was
+  verified against the pinned SHA-256.
+- Actuator: only `health` and `info` are exposed; health hides details and
+  has liveness/readiness probes; info shows build info only (no Java/OS
+  details, no misleading fixed 1980 build time).
+- Spotless (google-java-format 2.0.0, unused imports, sortPom) bound to
+  `verify`.
+- Mockito is loaded as a `-javaagent` through Surefire, removing the JDK
+  warning about dynamically loaded agents (which future JDKs will block).
+- `.github/workflows/backend.yml`: `./mvnw verify` on Temurin 21,
+  `ubuntu-24.04`, read-only token, no persisted credentials, SHA-pinned
+  `actions/checkout` v7.0.1 and `actions/setup-java` v6.3.0 (lightweight
+  tag; commit SHA from `git ls-remote`).
+
+**Files changed**
+
+- `backend/pom.xml`, `backend/mvnw`, `backend/mvnw.cmd`,
+  `backend/.mvn/wrapper/maven-wrapper.properties`
+- `backend/src/main/java/io/driftwatch/backend/DriftWatchApplication.java`
+- `backend/src/main/resources/application.yml`
+- `backend/src/test/java/io/driftwatch/backend/ActuatorEndpointsTest.java`
+- `.github/workflows/backend.yml`
+- `.gitattributes`: LF everywhere, CRLF for `*.cmd`/`*.bat` (Windows needs
+  it; `git diff --check` had flagged every line of `mvnw.cmd` as trailing
+  whitespace because of the CR), LF for `mvnw` and `*.sh`
+- `backend/README.md`, `README.md`, `ARCHITECTURE.md`,
+  `DEVELOPMENT_ROADMAP.md`, `CHANGELOG.md`, `DEVELOPMENT_LOG.md`
+
+**Tests executed** (Temurin 21.0.13, Maven 3.10.1 via the wrapper)
+
+- `./mvnw verify`: **10 tests passed**, running the real application on a
+  random port over HTTP: health UP without details; liveness and readiness
+  probes; info with artifact and version but no time/Java/OS; 404 for `env`,
+  `beans`, `configprops`, `heapdump`, `loggers`, `mappings`.
+- Spotless check passes, and a deliberately misformatted file makes
+  `spotless:check` fail; the file was then restored.
+- Replayed the CI command with an empty local Maven repository: build
+  success.
+- Ran the packaged jar and called every endpoint with `curl` (output
+  matched the tests).
+- Workflow structure checked with Ruby's YAML parser (triggers, path
+  filters, permissions, SHA pins, credentials, Java version).
+
+**Not verified**
+
+- Neither CI workflow has run on GitHub yet (repository not published).
+- `actionlint`/`zizmor` still not run (blocked earlier by the session's
+  permission policy).
+
+**Commit hash**
+
+- To be recorded in the next entry (see `git log`).
+
+**Remaining work**
+
+- 2.2 PostgreSQL + Flyway baseline migration; Testcontainers setup. This
+  needs a running Docker daemon for the integration tests.
+
+**Open decisions**: license (MIT vs Apache-2.0); repository publication.
+
+---
+
 ## 2026-11-21 — Milestone 1.10: CI for the analytics engine (Milestone 1 complete)
 
 **Feature implemented**
@@ -54,7 +127,7 @@ following session's commit (or read with `git log`).
 
 **Commit hash**
 
-- To be recorded in the next entry (see `git log`).
+- `86f6b4c` (workflow and lock file) + `f938d2e` (README status correction)
 
 **Remaining work**
 

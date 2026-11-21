@@ -1,0 +1,10 @@
+# Normalise text files to LF in the repository.
+* text=auto eol=lf
+
+# Windows batch scripts need CRLF to run; the CR is not trailing whitespace.
+*.cmd text eol=crlf whitespace=cr-at-eol
+*.bat text eol=crlf whitespace=cr-at-eol
+
+# Unix scripts must keep LF.
+mvnw text eol=lf
+*.sh text eol=lf
