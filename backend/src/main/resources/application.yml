@@ -17,6 +17,12 @@ spring:
     # No lazy loading during view rendering: transactions end in the service layer.
     open-in-view: false
 
+  jackson:
+    deserialization:
+      # Reject unknown JSON fields: a typo such as "tasktype" must be an error,
+      # not a silently ignored field.
+      fail-on-unknown-properties: true
+
   flyway:
     locations: classpath:db/migration
     # A migration edited after it was applied fails validation at startup.

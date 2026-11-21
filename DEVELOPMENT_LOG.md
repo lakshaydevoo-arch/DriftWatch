@@ -7,6 +7,91 @@ following session's commit (or read with `git log`).
 
 ---
 
+## 2026-11-21 — Milestone 2.3: model registry API
+
+**Feature implemented**
+
+- Package `io.driftwatch.backend.model`: `MonitoredModel` entity (UUIDv7 id
+  via Hibernate's `@UuidGenerator(style = VERSION_7)`, `createdAt` truncated
+  to microseconds), `MonitoredModelRepository`, `ModelService`,
+  `ModelController`, records `CreateModelRequest` / `ModelResponse` /
+  `ModelPage`.
+- Endpoints: `POST /api/v1/models` (201 + `Location`), `GET /api/v1/models/{id}`,
+  `GET /api/v1/models` (paginated, sorted by name then id for stable pages,
+  size 1–100).
+- Validation (Bean Validation, `spring-boot-starter-validation`): slug
+  names, required task type, column names without blank/edge whitespace or
+  line breaks, prediction ≠ target, unknown JSON fields rejected
+  (`spring.jackson.deserialization.fail-on-unknown-properties`).
+- `common.ApiExceptionHandler` + `ProblemTypes`: every error is RFC 9457 with
+  `urn:driftwatch:problem:` types (same scheme as the engine); specific but
+  safe messages (unknown field name, allowed enum values, expected parameter
+  type); a catch-all 500 that logs details and returns none.
+
+**Design decisions**
+
+- **Uniqueness from the database constraint, not check-then-insert**, so
+  concurrent requests cannot both succeed. `saveAndFlush` makes the
+  violation surface inside the service, where it becomes a 409.
+- **Reject, don't correct:** no trimming or lower-casing of names.
+- **Microsecond `createdAt`:** PostgreSQL stores microseconds, so a
+  nanosecond value returned by `POST` would differ from a later `GET`.
+
+**Files changed**
+
+- `backend/src/main/java/io/driftwatch/backend/model/*` (9 files),
+  `backend/src/main/java/io/driftwatch/backend/common/{ApiExceptionHandler,ProblemTypes}.java`
+- `backend/src/main/resources/application.yml`, `backend/pom.xml`
+- `backend/src/test/java/io/driftwatch/backend/model/ModelApiTest.java`
+- `backend/README.md` (API contract), `ARCHITECTURE.md` (§7),
+  `DEVELOPMENT_ROADMAP.md`, `CHANGELOG.md`, `DEVELOPMENT_LOG.md`
+
+**Tests executed** (Temurin 21.0.13, PostgreSQL 16.16 via Testcontainers)
+
+- `./mvnw verify`: **52 passed** (32 new API tests over real HTTP): create
+  (201, `Location`, UUIDv7, ISO timestamp); `GET` equals the `POST` body
+  exactly; optional columns; columns with spaces; 404 and non-UUID 400;
+  duplicate 409 with one row stored; **8 concurrent creates of the same name
+  → exactly one 201, the rest 409, one row**; 7 invalid names; length limit
+  100/101; all missing fields reported; 4 invalid column names;
+  prediction = target; unknown enum with allowed values; unknown field;
+  malformed JSON without parser details; 415; sorted pagination; empty list;
+  out-of-range and non-numeric paging.
+- **Mutation check:** with `fail-on-unknown-properties: false`, the
+  unknown-field test fails; configuration restored.
+- Live run with `./mvnw spring-boot:test-run` and `curl`: create, duplicate
+  409, list. No containers left running afterwards.
+
+**Issues found and fixed during verification**
+
+- Two tests failed on my error messages, "an UUID" and "a int", produced by
+  a naive English-article heuristic. Replaced with explicit descriptions
+  ("a UUID", "an integer").
+- I had put a DTO-specific field-name mapping inside the shared exception
+  handler; removed it and gave the cross-field check a self-describing
+  property name (`predictionColumnDifferentFromTarget`) instead.
+- Process: `set -e` did not stop a zsh script when an embedded Python edit
+  failed. Nothing was committed by that script; edit scripts now exit
+  explicitly on failure.
+
+**Known limitation**
+
+- The microsecond-precision test can only catch a regression on Linux: on
+  macOS `Instant.now()` already has microsecond resolution. CI runs on Linux.
+
+**Commit hash**
+
+- To be recorded in the next entry (see `git log`).
+
+**Remaining work**
+
+- 2.4 dataset upload, SHA-256 content-addressed file store, size limits.
+
+**Open decisions**: license (MIT vs Apache-2.0); repository publication;
+optional rename of the `io.driftwatch` package.
+
+---
+
 ## 2026-11-21 — Milestone 2.2: PostgreSQL, Flyway and Testcontainers
 
 **Feature implemented**
@@ -76,7 +161,7 @@ following session's commit (or read with `git log`).
 
 **Commit hash**
 
-- To be recorded in the next entry (see `git log`).
+- `6742520`
 
 **Remaining work**
 

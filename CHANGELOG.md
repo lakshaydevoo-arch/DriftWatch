@@ -45,3 +45,6 @@ first release.
   readiness and build-info endpoints; other Actuator endpoints stay unexposed.
 - `backend`: PostgreSQL persistence with Flyway migrations (V1: model registry
   table); readiness reports `503` when the database is unreachable.
+- `backend`: model registry API (`POST`/`GET /api/v1/models`,
+  `GET /api/v1/models/{id}`) with validation, race-safe unique names and
+  RFC 9457 problem-details errors.

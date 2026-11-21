@@ -144,8 +144,9 @@ are application-generated UUIDs.
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| `POST` | `/api/v1/models` | Register a model |
-| `GET`  | `/api/v1/models/{id}` | Get model details |
+| `POST` | `/api/v1/models` | Register a model (implemented; contract in [backend/README.md](backend/README.md#model-registry-api)) |
+| `GET`  | `/api/v1/models/{id}` | Get model details (implemented) |
+| `GET`  | `/api/v1/models` | List models, paginated (implemented) |
 | `POST` | `/api/v1/models/{id}/reference` | Upload reference dataset |
 | `POST` | `/api/v1/models/{id}/runs` | Upload current batch and start a run |
 | `GET`  | `/api/v1/runs/{runId}` | Run status and summary |

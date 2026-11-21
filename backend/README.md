@@ -2,7 +2,7 @@
 
 **Status:** Milestone 2 in progress. Implemented: project scaffold with
 health and build-info endpoints (2.1); PostgreSQL with Flyway migrations and
-Testcontainers integration tests (2.2). No domain API yet.
+Testcontainers integration tests (2.2); model registry API (2.3).
 
 Spring Boot application that will expose the public REST API, store models,
 datasets, reference profiles and monitoring results in PostgreSQL, and call
@@ -84,7 +84,64 @@ that touches `backend/`.
 ./mvnw test              # tests only
 ```
 
-## Endpoints
+## Model registry API
+
+| Method | Path | Success | Errors |
+|--------|------|---------|--------|
+| `POST` | `/api/v1/models` | `201` + `Location` header + model | `400`, `409`, `415` |
+| `GET` | `/api/v1/models/{id}` | `200` model | `400` (not a UUID), `404` |
+| `GET` | `/api/v1/models?page=0&size=20` | `200` page, sorted by name | `400` (page < 0, size not 1–100) |
+
+```bash
+curl -i -H 'Content-Type: application/json' localhost:8080/api/v1/models -d '{
+  "name": "credit-risk",
+  "taskType": "BINARY_CLASSIFICATION",
+  "targetColumn": "defaulted",
+  "predictionColumn": "default_probability"
+}'
+```
+
+```json
+{"id": "01a1feec-582f-7126-883a-4d3afc6e888e", "name": "credit-risk",
+ "taskType": "BINARY_CLASSIFICATION", "targetColumn": "defaulted",
+ "predictionColumn": "default_probability", "createdAt": "2026-11-21T16:24:24.364421Z"}
+```
+
+**Request rules** (invalid input is rejected, never silently corrected):
+
+| Field | Rule |
+|-------|------|
+| `name` | Required. 1–100 lowercase letters, digits or hyphens, starting and ending with a letter or digit (`credit-risk-v2`). Unique. |
+| `taskType` | Required. `BINARY_CLASSIFICATION`, `MULTICLASS_CLASSIFICATION` or `REGRESSION`. |
+| `targetColumn`, `predictionColumn` | Optional, up to 255 characters. Spaces inside are allowed (`mean radius`); blank values, leading/trailing whitespace and line breaks are not. They must be different columns. |
+| other fields | Rejected, so a typo such as `"tasktype"` is an error rather than ignored. |
+
+**Response:** `id` is a time-ordered UUID (version 7). `createdAt` is an
+ISO-8601 UTC instant with microsecond precision, the precision PostgreSQL
+stores, so `POST` and a later `GET` return identical values. A page is
+`{"items": [...], "page", "size", "totalItems", "totalPages"}`.
+
+**Uniqueness under concurrency:** the name is protected by the database's
+unique constraint rather than a check-then-insert, so concurrent requests
+for the same name create exactly one model; the others get `409` (tested
+with 8 parallel requests).
+
+### Errors
+
+All errors are RFC 9457 `application/problem+json`, using the same
+`urn:driftwatch:problem:` types scheme as the analytics engine:
+
+| Status | `type` suffix | When | Extra fields |
+|--------|---------------|------|--------------|
+| 400 | `invalid-request` | Body fails validation | `errors: [{field, message}]`, sorted |
+| 400 | `malformed-request-body` | Not JSON, unknown field, or unknown enum value (the detail lists the allowed values) | |
+| 400 | `invalid-parameter` | Bad path or query parameter (`'id' must be a UUID`, `'size' must be an integer`, out-of-range paging) | `errors` for range violations |
+| 404 | `model-not-found` | No model with that id | |
+| 409 | `model-name-taken` | Name already used | |
+| 415 | `about:blank` | Content type is not `application/json` | |
+| 500 | `internal-error` | Unexpected failure: logged server-side, no internals returned | |
+
+## Operational endpoints
 
 | Method | Path | Response |
 |--------|------|----------|
