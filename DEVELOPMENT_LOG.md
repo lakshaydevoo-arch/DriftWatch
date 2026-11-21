@@ -7,6 +7,89 @@ following session's commit (or read with `git log`).
 
 ---
 
+## 2026-11-21 — Milestone 1.8: `/v1/profile` and `/v1/drift` endpoints
+
+**Feature implemented**
+
+- `POST /v1/profile`: multipart `file` (CSV) + optional JSON `options`
+  (overrides, exclude, profile config) → `{profile, issues}`.
+- `POST /v1/drift`: multipart `profile` (JSON **file**) + `current` (CSV) +
+  optional JSON `config` → engine versions, full config echo, row count,
+  dataset summary (`drift_share`, `dataset_drift` at
+  `DriftConfig.dataset_drift_share`, default 0.5), per-feature results,
+  issues and warnings (engine version mismatch).
+- RFC 9457 problem details for every error, with stable `type` URNs
+  (`invalid-csv`, `empty-dataset`, `invalid-options`, `unprofilable-dataset`,
+  `invalid-profile`, `invalid-config`, `schema-mismatch`, `upload-too-large`,
+  `invalid-request`). Error lists are capped at 20 and never echo inputs.
+- Upload limits: per-file `DRIFTWATCH_MAX_UPLOAD_BYTES` (default 100 MB), plus
+  middleware that rejects an oversized `Content-Length` before the body is
+  read. `Settings` is read from the environment and injectable in tests.
+- Endpoints are synchronous so CPU-bound statistics run in FastAPI's thread
+  pool. Added the `python-multipart` dependency.
+
+**Design decision**
+
+- The profile is uploaded as a file part. Checking Starlette's source showed
+  ordinary form fields are capped at 1 MB. A profile stores up to 10,000
+  sample values per numeric feature (about 180 KB each at the full sample);
+  the 3,000-row, 3-numeric-feature test dataset already gives a 175 KB
+  profile, and wider datasets would pass 1 MB.
+
+**Files changed**
+
+- `analytics/src/driftwatch_analytics/api/{errors,uploads,models,profile,drift}.py`
+- `analytics/src/driftwatch_analytics/{main,settings}.py`
+- `analytics/src/driftwatch_analytics/drift/evaluation.py` (`dataset_drift_share`)
+- `analytics/tests/test_api.py`, `analytics/pyproject.toml`
+- `analytics/README.md` (API contract), `ARCHITECTURE.md` (§7),
+  `DEVELOPMENT_ROADMAP.md`, `CHANGELOG.md`, `DEVELOPMENT_LOG.md`
+
+**Tests executed** (Python 3.13.15)
+
+- `pytest`: 296 passed (35 new API tests). Profile success, options,
+  issues with severity; 5 bad CSVs, 5 invalid options, malformed options
+  JSON, unprofilable column, missing part; drift on unchanged data (exact
+  summary), shifted features plus a missing-rate flag (exact attribution and
+  summary), config echo, insufficient data, extra columns, schema mismatch,
+  4 invalid and 1 tampered profile, invalid config, invalid current CSV,
+  engine version warning, byte-identical repeated responses; per-file and
+  `Content-Length` limits; settings from the environment; OpenAPI paths.
+- Live check with `uvicorn` and `curl`: profile → drift round trip
+  (1 sd shift on `age` flagged, PSI 0.88, nothing else flagged); 4.2 MB upload
+  with a 2 MB limit → 413; malformed CSV → 422 problem response; no errors in
+  the server log.
+- `ruff format --check .`, `ruff check .`, `mypy` (strict): clean.
+
+**Issues found and fixed during verification**
+
+- A test expected a schema-violation warning on an *inferred* column, which
+  cannot happen: numeric inference needs ≥ 95% parseable values, while a
+  violation needs > 5% invalid. The test now forces the type with an
+  override, which is the only way a reference column can violate its schema.
+- During drafting the profile endpoint briefly had two duplicate CSV helpers,
+  one untyped; replaced with one typed `read_csv_upload` before any commit.
+
+**Known limitations**
+
+- A chunked request without `Content-Length` is only bounded per file after
+  it has been received (spooled to disk). The backend will enforce its own
+  upload limits (Milestone 2).
+- No authentication; the engine is meant to be reachable only by the backend.
+
+**Commit hash**
+
+- To be recorded in the next entry (see `git log`).
+
+**Remaining work**
+
+- 1.9 false-positive-rate and real-data tests (scikit-learn bundled datasets).
+- 1.10 GitHub Actions workflow for `analytics`.
+
+**Open decisions**: license (MIT vs Apache-2.0).
+
+---
+
 ## 2026-11-21 — Milestone 1.7c: sample-size-aware noise floor
 
 **Decision (approved by maintainer):** noise floor rather than a fixed
@@ -63,7 +146,7 @@ drift is obvious.
 
 **Commit hash**
 
-- To be recorded in the next entry (see `git log`).
+- `1d5151d`
 
 **Remaining work**
 

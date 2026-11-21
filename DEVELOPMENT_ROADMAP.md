@@ -37,7 +37,7 @@ Depends on: nothing.
   - ✅ 1.7a Normalised Wasserstein distance (reported)
   - ✅ 1.7b Per-feature evaluation with data-quality flags
   - ✅ 1.7c Sample-size-aware noise floor (approved by maintainer)
-- ⏳ 1.8 `/v1/profile` and `/v1/drift` endpoints with request validation +
+- ✅ 1.8 `/v1/profile` and `/v1/drift` endpoints with request validation +
   API tests
 - ⏳ 1.9 False-positive-rate tests on no-drift controls; real-data tests on
   scikit-learn bundled datasets

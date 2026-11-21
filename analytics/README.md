@@ -2,9 +2,11 @@
 
 **Status:** Milestone 1 in progress. Implemented: service scaffold with
 `/health` (1.1), the seeded synthetic data generator (1.2) and CSV loading
-with schema inference and batch validation (1.3), and reference profiles
+with schema inference and batch validation (1.3), reference profiles
 (1.4), numeric drift with PSI and KS (1.5), and categorical drift with
-Jensen–Shannon and chi-square (1.6).
+Jensen–Shannon and chi-square (1.6), per-feature evaluation with a
+sample-size-aware noise floor (1.7) and the `/v1/profile` and `/v1/drift`
+endpoints (1.8).
 
 Stateless FastAPI service that infers schemas, builds reference profiles and
 computes drift and performance metrics. It has no database and no filesystem
@@ -32,7 +34,7 @@ analytics/
 |---------|---------|
 | fastapi, uvicorn | HTTP API and ASGI server |
 | pydantic | Request/response validation; reference profile model |
-| python-multipart | CSV upload handling |
+| python-multipart | Multipart file uploads |
 | pandas | CSV parsing, column handling |
 | numpy | Quantiles, binning, sampling |
 | scipy (+ scipy-stubs for mypy) | KS, chi-square, Wasserstein, Jensen–Shannon |
@@ -243,9 +245,76 @@ python scripts/sample_size_policy.py   # reproduces the noise-floor table in the
 
 ## API
 
-| Method | Path | Response |
-|--------|------|----------|
-| `GET` | `/health` | `200 {"status": "ok", "engine_version": "<version>"}` |
+All endpoints are internal (called by the backend, not by end users).
+Interactive docs: `/docs`; machine-readable schema: `/openapi.json`.
+
+| Method | Path | Request (multipart/form-data) | Success |
+|--------|------|-------------------------------|---------|
+| `GET` | `/health` | | `200 {"status": "ok", "engine_version": "..."}` |
+| `POST` | `/v1/profile` | `file`: reference CSV; `options` (optional): JSON `ProfileOptions` | `200 {"profile": ReferenceProfile, "issues": [...]}` |
+| `POST` | `/v1/drift` | `profile`: profile JSON **file**; `current`: current CSV; `config` (optional): JSON `DriftConfig` | `200 DriftResponse` |
+
+The profile is sent as a file part, not a text field, because Starlette
+limits ordinary form fields to 1 MB and a profile can be larger (about
+180 KB per numeric feature with the default sample).
+
+### Example
+
+```bash
+curl -F file=@reference.csv localhost:8000/v1/profile | jq .profile > profile.json
+curl -F profile=@profile.json -F current=@today.csv localhost:8000/v1/drift
+curl -F file=@reference.csv \
+     -F 'options={"overrides": {"zip_code": "categorical"}, "exclude": ["customer_id"]}' \
+     localhost:8000/v1/profile
+```
+
+### `ProfileOptions`
+
+```json
+{"overrides": {"<column>": "numeric|categorical|boolean|datetime"},
+ "exclude": ["<column>"],
+ "profile": {"n_bins": 10, "sample_size": 10000, "max_categories": 100, "seed": 42}}
+```
+
+### `DriftResponse`
+
+| Field | Meaning |
+|-------|---------|
+| `engine_version`, `profile_engine_version` | Engine that ran the comparison / built the profile (a mismatch adds a warning) |
+| `config` | The full `DriftConfig` used, defaults filled in, so the run can be repeated |
+| `n_rows` | Rows in the current batch |
+| `summary` | `n_features`, `n_evaluated`, `n_insufficient_data`, `n_drifted`, `n_with_quality_flags`, `drift_share` (of evaluated features; `null` if none), `dataset_drift` (`drift_share >= dataset_drift_share`, default 0.5) |
+| `features` | One `FeatureDriftResult` per monitored feature, in schema order |
+| `issues` | Validation warnings (extra columns, schema violations, empty batch), each with `code`, `severity`, `message`, `column` |
+| `warnings` | Run-level warnings, e.g. engine version mismatch |
+
+### Errors
+
+Every error is RFC 9457 `application/problem+json`:
+`{"type", "title", "status", "detail", "errors"?}`. Branch on `type`:
+
+| Status | `type` (`urn:driftwatch:problem:` + …) | When |
+|--------|-------------------------------------------|------|
+| 413 | `upload-too-large` | A file exceeds `DRIFTWATCH_MAX_UPLOAD_BYTES` (default 100 MB), or `Content-Length` exceeds the total for the request |
+| 422 | `invalid-request` | A required part is missing (`errors` lists which) |
+| 422 | `invalid-csv` | Not UTF-8, ragged rows, blank or duplicate headers, unterminated quotes |
+| 422 | `empty-dataset` | Reference CSV has a header but no rows |
+| 422 | `invalid-options` | Bad `options` JSON, unknown columns in overrides/exclude |
+| 422 | `unprofilable-dataset` | A monitored column has no valid values (usually a wrong override) |
+| 422 | `invalid-profile` | Profile JSON is malformed, from another format version, or fails consistency checks |
+| 422 | `invalid-config` | Bad `config` JSON or out-of-range values |
+| 422 | `schema-mismatch` | Current batch lacks monitored columns (`errors` lists them) |
+
+`errors` is capped at 20 entries, and request inputs are never echoed back.
+
+### Configuration
+
+| Variable | Default | Meaning |
+|----------|---------|---------|
+| `DRIFTWATCH_MAX_UPLOAD_BYTES` | `104857600` | Maximum size of each uploaded file |
+
+Endpoints are synchronous functions, so FastAPI runs them in its thread pool
+and CPU-bound statistics do not block the event loop.
 
 `engine_version` comes from the installed package metadata (single source:
 `pyproject.toml`). If the package is not installed it reports

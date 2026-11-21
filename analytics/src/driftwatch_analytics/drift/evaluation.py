@@ -57,6 +57,9 @@ class DriftConfig(_Frozen):
     # producing false alarms.
     min_valid_count: int = Field(default=30, ge=1)
     max_missing_rate_change: float = Field(default=0.05, ge=0, le=1)
+    # Dataset-level alert when at least this share of evaluated features drift
+    # (ML_MONITORING_DESIGN.md section 9). A heuristic, not a corrected test.
+    dataset_drift_share: float = Field(default=0.5, gt=0, le=1)
 
 
 DriftResult = Annotated[NumericDriftResult | CategoricalDriftResult, Field(discriminator="kind")]

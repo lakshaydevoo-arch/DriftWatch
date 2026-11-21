@@ -156,6 +156,11 @@ Internal engine API (`analytics`, not exposed publicly):
 | `POST` | `/v1/profile` | Infer schema and build a reference profile |
 | `POST` | `/v1/drift` | Compare a current batch to a profile |
 
+The engine endpoints are implemented; their full request/response and
+error contract is in [analytics/README.md](analytics/README.md#api). The
+engine also returns RFC 9457 problem details, with stable `type` URNs that
+the backend can map to its own errors.
+
 Errors use RFC 9457 *Problem Details* (`application/problem+json`) in
 `backend`. Exact request/response contracts are documented as each endpoint
 is implemented.

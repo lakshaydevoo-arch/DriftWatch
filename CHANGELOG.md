@@ -38,3 +38,6 @@ first release.
 - `analytics`: sample-size-aware noise floor for PSI and Jensen–Shannon. Drift
   is flagged only above `max(threshold, 99th percentile of no-drift noise)`,
   which keeps false alarms on small batches at about 1–2%.
+- `analytics`: `POST /v1/profile` and `POST /v1/drift` endpoints with
+  multipart uploads, a dataset-level drift summary, upload size limits
+  (`DRIFTWATCH_MAX_UPLOAD_BYTES`) and RFC 9457 problem-details errors.
