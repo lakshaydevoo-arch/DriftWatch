@@ -22,31 +22,39 @@ following session's commit (or read with `git log`).
   is identical. The pre-rewrite history is kept locally on the branch
   `backup/pre-noreply-email`, which is not pushed.
 - This repository's `user.email` now uses the noreply address.
-- Every commit hash in this log was updated to the rewritten hash
+- At the maintainer's request, the `Co-Authored-By: Claude` trailer was
+  removed from every commit message, so the AI assistant is not listed as a
+  repository contributor (it is credited elsewhere, as the maintainer
+  decides). This needed one force-push of `main`, approved by the
+  maintainer, minutes after the first push and before anyone else could
+  have cloned it. Code, dates, authors and subjects are unchanged. The
+  history before this step is kept locally on `backup/pre-remove-coauthor`
+  (not pushed). Future commits do not carry the trailer.
+- Every commit hash in this log was updated to the final rewritten hash
   (23 references). Old → new:
 
-  - `2837056` → `e4af4e1`
-  - `14e185b` → `7766c1c`
-  - `ef89481` → `1514b7a`
-  - `faabff3` → `cc4dc41`
-  - `3eb1c86` → `6e6e6d7`
-  - `627ce5e` → `e38f61c`
-  - `3176f63` → `0d97117`
-  - `16d48c6` → `3ef0505`
-  - `0df8853` → `4d66bcc`
-  - `f50d149` → `02bbd5a`
-  - `25ac76b` → `e9e3baa`
-  - `1d5151d` → `f5e930a`
-  - `b26ab31` → `047cc1c`
-  - `979676f` → `bd1f0d9`
-  - `86f6b4c` → `e535808`
-  - `f938d2e` → `096668b`
-  - `f97372f` → `0db382e`
-  - `6742520` → `1c52bb9`
-  - `a16d2e9` → `ba7003c`
-  - `3560eac` → `57f70c6`
-  - `c33fa43` → `22f2f39`
-  - `aa32835` → `d905a5e`
+  - `2837056` → `370c809`
+  - `14e185b` → `8caa76b`
+  - `ef89481` → `35c5b9a`
+  - `faabff3` → `2056842`
+  - `3eb1c86` → `c4dc3bb`
+  - `627ce5e` → `b6211ff`
+  - `3176f63` → `231136a`
+  - `16d48c6` → `86d70a8`
+  - `0df8853` → `4163004`
+  - `f50d149` → `2144b9c`
+  - `25ac76b` → `ef2cd9c`
+  - `1d5151d` → `62b0c59`
+  - `b26ab31` → `11a7aed`
+  - `979676f` → `1c12c46`
+  - `86f6b4c` → `ae827f6`
+  - `f938d2e` → `5f6a08a`
+  - `f97372f` → `0e04631`
+  - `6742520` → `139fd24`
+  - `a16d2e9` → `a62547a`
+  - `3560eac` → `eebaef8`
+  - `c33fa43` → `7a08deb`
+  - `aa32835` → `5ffdb81`
 
 **Files changed**
 
@@ -54,6 +62,9 @@ following session's commit (or read with `git log`).
 
 **Checks**
 
+- First CI runs on GitHub (manually dispatched, since the triggering
+  commit was docs-only): `analytics`, `backend` and `engine-contract` all
+  passed; re-run after the force-push.
 - History scanned for tokens, keys, passwords, `.env` files and large files
   before publishing: none found.
 - No code changed, so tests were not re-run for this entry; CI runs on GitHub
@@ -65,7 +76,6 @@ following session's commit (or read with `git log`).
 
 **Remaining work**
 
-- Check the first CI runs on GitHub.
 - Choose a license (MIT or Apache-2.0).
 - Task 2.7: monitoring run lifecycle.
 
@@ -168,7 +178,7 @@ following session's commit (or read with `git log`).
 
 **Commit hash**
 
-- `d905a5e`
+- `5ffdb81`
 
 **Remaining work**
 
@@ -251,7 +261,7 @@ optional rename of the `io.driftwatch` package.
 
 **Commit hash**
 
-- `22f2f39`
+- `7a08deb`
 
 **Remaining work**
 
@@ -349,7 +359,7 @@ the plan does not call for.
 
 **Commit hash**
 
-- `57f70c6`
+- `eebaef8`
 
 **Remaining work**
 
@@ -434,7 +444,7 @@ optional rename of the `io.driftwatch` package.
 
 **Commit hash**
 
-- `ba7003c`
+- `a62547a`
 
 **Remaining work**
 
@@ -514,7 +524,7 @@ optional rename of the `io.driftwatch` package.
 
 **Commit hash**
 
-- `1c52bb9`
+- `139fd24`
 
 **Remaining work**
 
@@ -588,7 +598,7 @@ optional rename of the `io.driftwatch` package.
 
 **Commit hash**
 
-- `0db382e`
+- `0e04631`
 
 **Remaining work**
 
@@ -646,7 +656,7 @@ optional rename of the `io.driftwatch` package.
 
 **Commit hash**
 
-- `e535808` (workflow and lock file) + `096668b` (README status correction)
+- `ae827f6` (workflow and lock file) + `5f6a08a` (README status correction)
 
 **Remaining work**
 
@@ -716,7 +726,7 @@ written next to each assertion.
 
 **Commit hash**
 
-- `bd1f0d9`
+- `1c12c46`
 
 **Remaining work**
 
@@ -799,7 +809,7 @@ written next to each assertion.
 
 **Commit hash**
 
-- `047cc1c`
+- `11a7aed`
 
 **Remaining work**
 
@@ -866,7 +876,7 @@ drift is obvious.
 
 **Commit hash**
 
-- `f5e930a`
+- `62b0c59`
 
 **Remaining work**
 
@@ -912,7 +922,7 @@ drift is obvious.
 
 **Commit hash**
 
-- `e9e3baa`
+- `ef2cd9c`
 
 **Remaining work**
 
@@ -936,7 +946,7 @@ statistical policy decision that needs maintainer approval.
 
 **Files changed**
 
-- `4d66bcc`: `analytics/src/driftwatch_analytics/drift/{models,numeric}.py`,
+- `4163004`: `analytics/src/driftwatch_analytics/drift/{models,numeric}.py`,
   `analytics/tests/drift/test_numeric.py`, `ML_MONITORING_DESIGN.md` (§3.3),
   `analytics/README.md` (whitespace only, see below)
 - Follow-up docs commit: `analytics/README.md`, `CHANGELOG.md`,
@@ -954,7 +964,7 @@ statistical policy decision that needs maintainer approval.
 - The documentation script failed partway because `ruff format` also
   reformats Python code blocks inside `analytics/README.md`, so an exact-text
   edit did not match. The shell steps were not chained to stop on failure,
-  so `4d66bcc` was committed with the code, tests and design doc but without
+  so `4163004` was committed with the code, tests and design doc but without
   the README, changelog, roadmap and log updates; it also contains ruff's
   whitespace-only re-alignment of README code comments. Existing commits are
   not amended, so the missing documentation is added in a separate `docs:`
@@ -962,7 +972,7 @@ statistical policy decision that needs maintainer approval.
 
 **Commit hash**
 
-- `4d66bcc` (feature) + `02bbd5a` (docs follow-up)
+- `4163004` (feature) + `2144b9c` (docs follow-up)
 
 **Remaining work**
 
@@ -1031,7 +1041,7 @@ statistical policy decision that needs maintainer approval.
 
 **Commit hash**
 
-- `3ef0505`
+- `86d70a8`
 
 **Remaining work**
 
@@ -1097,7 +1107,7 @@ statistical policy decision that needs maintainer approval.
 
 **Commit hash**
 
-- `0d97117`
+- `231136a`
 
 **Remaining work**
 
@@ -1157,7 +1167,7 @@ statistical policy decision that needs maintainer approval.
 
 **Commit hash**
 
-- `e38f61c`
+- `b6211ff`
 
 **Remaining work**
 
@@ -1201,7 +1211,7 @@ statistical policy decision that needs maintainer approval.
 
 **Commit hash**
 
-- `6e6e6d7`
+- `c4dc3bb`
 
 **Remaining work**
 
@@ -1261,7 +1271,7 @@ validation (1.3b), so each can be reviewed and tested on its own.
 
 **Commit hash**
 
-- `cc4dc41`
+- `2056842`
 
 **Remaining work**
 
@@ -1311,7 +1321,7 @@ validation (1.3b), so each can be reviewed and tested on its own.
 
 **Commit hash**
 
-- `1514b7a`
+- `35c5b9a`
 
 **Remaining work**
 
@@ -1357,7 +1367,7 @@ validation (1.3b), so each can be reviewed and tested on its own.
 
 **Commit hash**
 
-- `7766c1c`
+- `8caa76b`
 
 **Remaining work**
 
@@ -1401,7 +1411,7 @@ name). Build order confirmed: analytics first.
 
 **Commit hash**
 
-- `e4af4e1`
+- `370c809`
 
 **Remaining work**
 
