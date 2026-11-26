@@ -43,6 +43,16 @@ public class RunLabels {
   @Column(name = "join_report", nullable = false, updatable = false)
   private String joinReport;
 
+  /** The {@code PerformanceConfig} the engine applied ({@code null} before V6). */
+  @JdbcTypeCode(SqlTypes.JSON)
+  @Column(updatable = false)
+  private String config;
+
+  /** The engine's metrics on the joined rows ({@code null} before V6). */
+  @JdbcTypeCode(SqlTypes.JSON)
+  @Column(updatable = false)
+  private String metrics;
+
   @Column(name = "created_at", nullable = false, updatable = false)
   private Instant createdAt;
 
@@ -50,12 +60,21 @@ public class RunLabels {
     // for JPA
   }
 
-  RunLabels(UUID runId, UUID modelId, UUID datasetId, String engineVersion, String joinReport) {
+  RunLabels(
+      UUID runId,
+      UUID modelId,
+      UUID datasetId,
+      String engineVersion,
+      String joinReport,
+      String config,
+      String metrics) {
     this.runId = runId;
     this.modelId = modelId;
     this.datasetId = datasetId;
     this.engineVersion = engineVersion;
     this.joinReport = joinReport;
+    this.config = config;
+    this.metrics = metrics;
     this.createdAt = Instant.now().truncatedTo(ChronoUnit.MICROS);
   }
 
@@ -81,6 +100,14 @@ public class RunLabels {
 
   public String getJoinReport() {
     return joinReport;
+  }
+
+  public String getConfig() {
+    return config;
+  }
+
+  public String getMetrics() {
+    return metrics;
   }
 
   public Instant getCreatedAt() {

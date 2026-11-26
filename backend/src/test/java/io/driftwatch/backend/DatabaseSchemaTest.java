@@ -59,7 +59,8 @@ class DatabaseSchemaTest {
             tuple("2", "create dataset", true),
             tuple("3", "create reference profile", true),
             tuple("4", "create monitoring run", true),
-            tuple("5", "add labels", true));
+            tuple("5", "add labels", true),
+            tuple("6", "add label metrics", true));
   }
 
   @Test

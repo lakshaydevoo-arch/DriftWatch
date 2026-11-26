@@ -24,6 +24,10 @@ import tools.jackson.databind.json.JsonMapper;
 /**
  * Uploads ground-truth labels for a monitoring run and records how well they join.
  *
+ * <p>The engine also computes performance metrics on the joined rows; they are stored with the join
+ * report. An optional {@code PerformanceConfig} (e.g. {@code positive_label}) is passed to the
+ * engine unchanged; the configuration it applied is stored too.
+ *
  * <p>Same shape as reference registration: store the file with no transaction open, have the engine
  * join it (synchronously: a labels file is small and the join is fast), then insert the dataset and
  * the join report in one transaction, only if the engine succeeded. The join uses the run's own
@@ -74,7 +78,8 @@ public class LabelService {
    * @throws io.driftwatch.backend.analytics.AnalyticsException if the join fails (e.g. {@code
    *     labels-not-configured}, {@code duplicate-record-ids})
    */
-  public Uploaded upload(UUID runId, String filename, InputStream content) throws IOException {
+  public Uploaded upload(UUID runId, String filename, InputStream content, JsonNode config)
+      throws IOException {
     MonitoringRun run = runs.get(runId);
     Reference reference = references.get(run.getReferenceId());
     Dataset batch = runs.currentDatasetOf(run);
@@ -85,14 +90,24 @@ public class LabelService {
             datasets.resource(batch),
             batch.getOriginalFilename() == null ? "current.csv" : batch.getOriginalFilename(),
             datasets.resource(upload),
-            filename == null ? "labels.csv" : filename);
+            filename == null ? "labels.csv" : filename,
+            config);
     String engineVersion = validate(result);
     String report = json.writeValueAsString(result.join());
+    String appliedConfig = json.writeValueAsString(result.config());
+    String metrics = json.writeValueAsString(result.metrics());
     return transactions.execute(status -> {
       Dataset dataset = datasets.record(upload, DatasetRole.LABELS);
       RunLabels saved =
           labels.saveAndFlush(
-              new RunLabels(runId, run.getModelId(), dataset.getId(), engineVersion, report));
+              new RunLabels(
+                  runId,
+                  run.getModelId(),
+                  dataset.getId(),
+                  engineVersion,
+                  report,
+                  appliedConfig,
+                  metrics));
       return new Uploaded(saved, dataset);
     });
   }
@@ -130,6 +145,14 @@ public class LabelService {
       if (value == null || !value.canConvertToLong() || value.asLong() < 0) {
         throw new AnalyticsProtocolException("join report has no valid '" + field + "'");
       }
+    }
+    JsonNode metrics = result.metrics();
+    JsonNode status = metrics.get("status");
+    if (!metrics.isObject() || status == null || !status.isString() || !metrics.has("metrics")) {
+      throw new AnalyticsProtocolException("performance response has no valid 'metrics'");
+    }
+    if (!result.config().isObject()) {
+      throw new AnalyticsProtocolException("performance response 'config' is not an object");
     }
     return result.engineVersion();
   }

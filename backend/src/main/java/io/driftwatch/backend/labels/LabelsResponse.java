@@ -11,6 +11,9 @@ import tools.jackson.databind.json.JsonMapper;
  *
  * @param join the engine's join report, exactly as returned (snake_case, like other engine
  *     payloads): {@code join_rate}, {@code n_joined} and counts of every kind of gap
+ * @param metrics the engine's performance metrics on the joined rows, as returned ({@code null} for
+ *     uploads made before metrics existed)
+ * @param config the {@code PerformanceConfig} the engine applied ({@code null} likewise)
  */
 public record LabelsResponse(
     UUID id,
@@ -18,6 +21,8 @@ public record LabelsResponse(
     DatasetView dataset,
     String engineVersion,
     JsonNode join,
+    JsonNode metrics,
+    JsonNode config,
     Instant createdAt) {
 
   /** The uploaded labels file. */
@@ -34,6 +39,8 @@ public record LabelsResponse(
             dataset.getOriginalFilename()),
         labels.getEngineVersion(),
         json.readTree(labels.getJoinReport()),
+        labels.getMetrics() == null ? null : json.readTree(labels.getMetrics()),
+        labels.getConfig() == null ? null : json.readTree(labels.getConfig()),
         labels.getCreatedAt());
   }
 }

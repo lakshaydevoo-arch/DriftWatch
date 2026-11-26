@@ -93,3 +93,6 @@ first release.
   weighted F1 (multiclass), MAE, RMSE and R² (regression); configurable
   minimum rows, probability threshold and positive label; undefined metrics
   are `null`. The target column is now typed by the task.
+- `backend`: each labels upload stores and returns the engine's performance
+  metrics and the configuration it applied (Flyway V6); optional `config`
+  (`positive_label`, `probability_threshold`, `min_evaluated`).

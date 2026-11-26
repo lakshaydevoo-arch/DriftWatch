@@ -391,10 +391,15 @@ uploaded per run and joined to that run's batch by the model's
 
 ```bash
 curl -F labels=@labels.csv localhost:8080/api/v1/runs/$RUN_ID/labels
+curl -F labels=@labels.csv -F 'config={"positive_label": "deny"}' \
+     localhost:8080/api/v1/runs/$RUN_ID/labels
 ```
 
 Request (`multipart/form-data`): `labels`, a CSV with the record id column
-and the target column (other columns are ignored).
+and the target column (other columns are ignored), and optional `config`, a
+JSON [`PerformanceConfig`](../analytics/README.md#performancemetrics-v1performance)
+(`min_evaluated`, `probability_threshold`, `positive_label`) passed to the
+engine unchanged.
 
 ```json
 {"id": "...", "runId": "...",
@@ -404,12 +409,23 @@ and the target column (other columns are ignored).
           "n_labels_without_id": 0, "n_matched": 150, "n_missing_labels": 1,
           "n_invalid_labels": 0, "n_joined": 149, "n_unmatched_labels": 5,
           "join_rate": 0.745},
+ "metrics": {"status": "evaluated", "task_type": "binary_classification",
+             "n_evaluated": 149, "n_missing_predictions": 0, "n_invalid_predictions": 0,
+             "positive_label": "true",
+             "metrics": {"accuracy": 0.71, "precision": 0.68, "recall": 0.74,
+                         "f1": 0.71, "roc_auc": 0.78},
+             "notes": [], "reason": null},
+ "config": {"min_evaluated": 30, "probability_threshold": 0.5, "positive_label": null},
  "createdAt": "..."}
 ```
 
-`join` is the engine's report, as returned (field meanings and join rules:
-[analytics/README.md](../analytics/README.md#joinreport-v1performance)).
-Performance metrics on the joined rows come with task 3.3.
+(Values illustrative.) `join` and `metrics` are the engine's payloads, as
+returned (join rules:
+[analytics/README.md](../analytics/README.md#joinreport-v1performance);
+metrics, statuses and the positive-class rule:
+[analytics/README.md](../analytics/README.md#performancemetrics-v1performance)).
+`config` is the configuration the engine applied. Uploads made before metrics
+existed (Flyway V6) have `metrics` and `config` set to `null`.
 
 **How it works.** Like reference registration: store the file (no
 transaction), have the engine join it with the run's batch and the reference
@@ -428,6 +444,8 @@ model (Flyway V5).
 | 422 | `duplicate-record-ids` | An id repeats in the batch or the labels (`errors` gives counts, never ids) |
 | 422 | `schema-mismatch` | The batch lacks the record id column, or the labels lack it or the target |
 | 422 | `invalid-csv` | The labels file is not valid CSV |
+| 422 | `invalid-config` | `config` has an unknown field or an out-of-range value |
+| 400 | `invalid-parameter` | `config` is not a JSON object |
 | 404 | `labels-not-found` | `GET` for a run with no labels yet |
 
 ## Dataset storage

@@ -14,6 +14,7 @@ import io.driftwatch.backend.run.RunService;
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.List;
 import java.util.Locale;
 import java.util.Random;
 import java.util.UUID;
@@ -118,7 +119,8 @@ class LabelsEngineContractTest {
         labels.upload(
             run,
             "labels.csv",
-            new ByteArrayInputStream(csv.toString().getBytes(StandardCharsets.UTF_8)));
+            new ByteArrayInputStream(csv.toString().getBytes(StandardCharsets.UTF_8)),
+            null);
 
     JsonNode join = json.readTree(uploaded.labels().getJoinReport());
     assertThat(join.get("n_current_rows").asInt()).isEqualTo(200);
@@ -129,6 +131,18 @@ class LabelsEngineContractTest {
     assertThat(join.get("n_unmatched_labels").asInt()).isEqualTo(5);
     assertThat(join.get("join_rate").asDouble()).isEqualTo(149 / 200.0);
     assertThat(labels.current(run).getId()).isEqualTo(uploaded.labels().getId());
+
+    // Metrics on the 149 joined rows: the batch's scores against these labels.
+    JsonNode metrics = json.readTree(uploaded.labels().getMetrics());
+    assertThat(metrics.get("status").asString()).isEqualTo("evaluated");
+    assertThat(metrics.get("task_type").asString()).isEqualTo("binary_classification");
+    assertThat(metrics.get("n_evaluated").asInt()).isEqualTo(149);
+    assertThat(metrics.get("positive_label").asString()).isEqualTo("true");
+    for (String metric : List.of("accuracy", "precision", "recall", "f1", "roc_auc")) {
+      assertThat(metrics.get("metrics").has(metric)).as(metric).isTrue();
+    }
+    assertThat(json.readTree(uploaded.labels().getConfig()).get("min_evaluated").asInt())
+        .isEqualTo(30);
   }
 
   @Test
@@ -140,7 +154,8 @@ class LabelsEngineContractTest {
                 run,
                 "labels.csv",
                 new ByteArrayInputStream(
-                    "application,defaulted\nc1,1\nc1,0\n".getBytes(StandardCharsets.UTF_8))))
+                    "application,defaulted\nc1,1\nc1,0\n".getBytes(StandardCharsets.UTF_8)),
+                null))
         .isInstanceOf(AnalyticsRejectedException.class)
         .extracting(e -> ((AnalyticsRejectedException) e).getKind())
         .isEqualTo("duplicate-record-ids");

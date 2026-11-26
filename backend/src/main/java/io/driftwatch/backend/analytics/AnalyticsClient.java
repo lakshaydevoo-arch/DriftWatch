@@ -119,13 +119,15 @@ public class AnalyticsClient {
    * Joins ground-truth labels to a batch by record id ({@code POST /v1/performance}).
    *
    * @param profileJson the profile exactly as stored (sent as a file part, like for drift)
+   * @param config JSON {@code PerformanceConfig}, or {@code null} for defaults
    */
   public PerformanceResult performance(
       byte[] profileJson,
       Resource current,
       String currentFilename,
       Resource labels,
-      String labelsFilename) {
+      String labelsFilename,
+      JsonNode config) {
     MultiValueMap<String, Object> parts = new LinkedMultiValueMap<>();
     parts.add(
         "profile",
@@ -136,8 +138,15 @@ public class AnalyticsClient {
             new ByteArrayResource(profileJson)));
     parts.add("current", filePart("current", currentFilename, TEXT_CSV, current));
     parts.add("labels", filePart("labels", labelsFilename, TEXT_CSV, labels));
+    if (config != null) {
+      parts.add("config", json.writeValueAsString(config));
+    }
     JsonNode body = execute("performance", post("/v1/performance", parts));
-    return new PerformanceResult(require(body, "join"), text(body, "engine_version"));
+    return new PerformanceResult(
+        require(body, "join"),
+        require(body, "metrics"),
+        require(body, "config"),
+        text(body, "engine_version"));
   }
 
   /**

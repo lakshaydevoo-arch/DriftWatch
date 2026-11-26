@@ -7,6 +7,60 @@ following session's commit (or read with `git log`).
 
 ---
 
+## 2026-11-27 — Milestone 3.3b: metrics stored with labels (backend) — closes #2
+
+**Feature implemented**
+
+- Labels upload accepts an optional JSON `config` (`PerformanceConfig`),
+  passed to the engine; a non-object is `400 invalid-parameter`, bad content
+  is the engine's `422 invalid-config`.
+- `run_labels` stores the engine's `metrics` and applied `config` (Flyway V6;
+  both or neither, so pre-V6 uploads stay `null`), and the API returns them.
+- `AnalyticsClient.performance` sends the config and requires `metrics` and
+  `config` in the response; `LabelService` also checks the metrics shape
+  (`status`, `metrics`), else `502`.
+
+**Why this design**
+
+- Metrics are stored with the upload that produced them, exactly as the
+  engine returned them (ARCHITECTURE D7): a corrected labels file or a
+  different positive label gives a new upload with its own metrics, and the
+  history stays auditable.
+
+**Trade-offs and failure cases**
+
+- Changing `positive_label` means uploading the labels again.
+- No degradation flags yet: they need the reference baseline (#3).
+
+**Files changed**
+
+- `backend/src/main/resources/db/migration/V6__add_label_metrics.sql`
+- `labels/`: `RunLabels`, `LabelService`, `LabelsController`, `LabelsResponse`;
+  `analytics/AnalyticsClient`, `PerformanceResult`
+- Tests: `labels/LabelsApiTest` (+3: config passed, malformed config, missing
+  metrics), `labels/LabelsSchemaTest` (+1), `labels/LabelsEngineContractTest`
+  (metrics from the real engine), `DatabaseSchemaTest`
+- Docs: `backend/README.md`, `ARCHITECTURE.md`, `DEVELOPMENT_ROADMAP.md`,
+  `CHANGELOG.md`, this log
+
+**Tests executed**
+
+- `./mvnw verify`: 206 passed, 21 skipped (engine-contract tests, gated),
+  Spotless clean.
+- With a locally started real engine, full suite in reverse order: 227
+  passed, 0 skipped; the contract test checks metrics on 149 joined rows
+  (status, positive class, all five binary metrics, applied config).
+
+**Commit hash**
+
+- To be recorded in the next entry (see `git log`).
+
+**Remaining work**
+
+- 3.4 (#3): reference performance baseline and degradation flags.
+
+---
+
 ## 2026-11-27 — Milestone 3.3a: performance metrics (engine) — #2
 
 **Feature implemented**
@@ -71,7 +125,7 @@ following session's commit (or read with `git log`).
 
 **Commit hash**
 
-- To be recorded in the next entry (see `git log`).
+- `9edd204`
 
 **Remaining work**
 

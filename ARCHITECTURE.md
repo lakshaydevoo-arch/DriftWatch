@@ -135,7 +135,8 @@ monitoring_run(id, model_id FK, reference_profile_id FK, current_dataset_id FK
                created_at, started_at, finished_at)
                -- V4; check constraints tie each status to its fields
 run_labels(id, run_id FK, model_id, dataset_id FK UNIQUE, engine_version,
-           join_report JSONB, created_at)
+           join_report JSONB, config JSONB, metrics JSONB, created_at)
+           -- config and metrics: V6
            -- V5; also adds monitored_model.record_id_column and the LABELS role
 ```
 

@@ -133,4 +133,22 @@ class LabelsSchemaTest {
   void rolesMayBeAbsent() {
     assertThatCode(() -> model("m", null, null, null)).doesNotThrowAnyException();
   }
+
+  @Test
+  void metricsAndTheirConfigAreStoredTogether() {
+    UUID model = model("m", "y", "p", "id");
+    UUID run = run(model);
+
+    assertThatThrownBy(() ->
+            jdbc.update(
+                "INSERT INTO run_labels (id, run_id, model_id, dataset_id, engine_version,"
+                    + " join_report, metrics) VALUES (?, ?, ?, ?, '0.1.0', '{}'::jsonb,"
+                    + " '{}'::jsonb)",
+                UUID.randomUUID(),
+                run,
+                model,
+                dataset(model, "LABELS")))
+        .isInstanceOf(DataIntegrityViolationException.class)
+        .hasMessageContaining("ck_run_labels_metrics_with_config");
+  }
 }

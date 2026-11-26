@@ -66,6 +66,16 @@ class LabelsApiTest {
        "n_labels_without_id": 0, "n_matched": 2, "n_missing_labels": 0,
        "n_invalid_labels": 0, "n_joined": 2, "n_unmatched_labels": 0, "join_rate": 1.0}
       """;
+  private static final String METRICS =
+      """
+      {"status": "evaluated", "task_type": "binary_classification", "reason": null,
+       "n_evaluated": 2, "n_missing_predictions": 0, "n_invalid_predictions": 0,
+       "positive_label": "true", "metrics": {"accuracy": 1.0}, "notes": []}
+      """;
+  private static final String CONFIG =
+      """
+      {"min_evaluated": 30, "probability_threshold": 0.5, "positive_label": null}
+      """;
   private static final String DRIFT =
       """
       {"engine_version": "0.1.0.dev0", "n_rows": 2, "summary": {}, "features": []}
@@ -85,6 +95,7 @@ class LabelsApiTest {
   private final AtomicReference<byte[]> profileSent = new AtomicReference<>();
   private final AtomicReference<byte[]> batchSent = new AtomicReference<>();
   private final AtomicReference<byte[]> labelsSent = new AtomicReference<>();
+  private final AtomicReference<JsonNode> configSent = new AtomicReference<>();
 
   @BeforeEach
   void setUp() throws Exception {
@@ -117,15 +128,21 @@ class LabelsApiTest {
   }
 
   private void engineJoins(String join) {
+    engineReturns(join, METRICS);
+  }
+
+  private void engineReturns(String join, String metrics) {
     doAnswer(
             inv -> {
               profileSent.set(inv.getArgument(0));
               batchSent.set(read(inv.getArgument(1)));
               labelsSent.set(read(inv.getArgument(3)));
-              return new PerformanceResult(json.readTree(join), "0.1.0.dev0");
+              configSent.set(inv.getArgument(5));
+              return new PerformanceResult(
+                  json.readTree(join), json.readTree(metrics), json.readTree(CONFIG), "0.1.0.dev0");
             })
         .when(analytics)
-        .performance(any(), any(), anyString(), any(), anyString());
+        .performance(any(), any(), anyString(), any(), anyString(), any());
   }
 
   private String path(UUID run) {
@@ -173,6 +190,8 @@ class LabelsApiTest {
     assertThat(body.get("runId").asString()).isEqualTo(runId.toString());
     assertThat(body.get("engineVersion").asString()).isEqualTo("0.1.0.dev0");
     assertThat(body.get("join")).isEqualTo(json.readTree(JOIN));
+    assertThat(body.get("metrics")).isEqualTo(json.readTree(METRICS));
+    assertThat(body.get("config")).isEqualTo(json.readTree(CONFIG));
     assertThat(body.get("dataset").get("byteSize").asLong()).isEqualTo(LABELS.length);
     assertThat(body.get("dataset").get("originalFilename").asString()).isEqualTo("labels.csv");
     assertThat(
@@ -214,7 +233,7 @@ class LabelsApiTest {
                 "record ids must be unique; 1 id(s) repeat in the labels CSV",
                 List.of(Map.of("part", "labels", "n_duplicated_ids", 1))))
         .when(analytics)
-        .performance(any(), any(), anyString(), any(), anyString());
+        .performance(any(), any(), anyString(), any(), anyString(), any());
 
     JsonNode problem = problem(upload(LABELS), 422, "duplicate-record-ids");
 
@@ -235,12 +254,49 @@ class LabelsApiTest {
   }
 
   @Test
+  void aConfigIsPassedToTheEngineAndWithoutOneNoneIsSent() throws Exception {
+    upload(LABELS);
+    assertThat(configSent.get()).isNull();
+
+    upload(
+        runId,
+        new Multipart()
+            .file("labels", "labels.csv", "text/csv", LABELS)
+            .field("config", "{\"positive_label\": \"deny\"}"));
+
+    assertThat(configSent.get()).isEqualTo(json.readTree("{\"positive_label\": \"deny\"}"));
+  }
+
+  @Test
+  void aMalformedConfigIs400AndTheEngineIsNotCalled() throws Exception {
+    for (String config : List.of("{nope", "[1]")) {
+      problem(
+          upload(
+              runId,
+              new Multipart()
+                  .file("labels", "labels.csv", "text/csv", LABELS)
+                  .field("config", config)),
+          400,
+          "invalid-parameter");
+    }
+    verify(analytics, never()).performance(any(), any(), anyString(), any(), anyString(), any());
+  }
+
+  @Test
+  void aResponseWithoutMetricsIsAContractViolation() throws Exception {
+    engineReturns(JOIN, "{\"metrics\": {}}");
+
+    problem(upload(LABELS), 502, "analytics-protocol-error");
+    assertThat(count("run_labels")).isZero();
+  }
+
+  @Test
   void labelsForAnUnknownRunAre404AndTheEngineIsNotCalled() throws Exception {
     problem(
         upload(UUID.randomUUID(), new Multipart().file("labels", "l.csv", "text/csv", LABELS)),
         404,
         "run-not-found");
-    verify(analytics, never()).performance(any(), any(), anyString(), any(), anyString());
+    verify(analytics, never()).performance(any(), any(), anyString(), any(), anyString(), any());
   }
 
   @Test
@@ -259,7 +315,7 @@ class LabelsApiTest {
   @Test
   void anEmptyLabelsFileIs400() throws Exception {
     problem(upload(new byte[0]), 400, "empty-upload");
-    verify(analytics, never()).performance(any(), any(), anyString(), any(), anyString());
+    verify(analytics, never()).performance(any(), any(), anyString(), any(), anyString(), any());
   }
 
   @Test

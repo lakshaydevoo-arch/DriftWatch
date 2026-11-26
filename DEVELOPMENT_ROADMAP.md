@@ -72,10 +72,10 @@ Depends on: Milestone 1 API contracts (1.8).
   - ✅ 3.2a Engine: record id role, label join with join report,
     `POST /v1/performance`
   - ✅ 3.2b Backend: record id column on models, label upload per run
-- 🔄 3.3 Classification and regression metrics on the joined labels ([#2](https://github.com/lakshaydevoo-arch/DriftWatch/issues/2))
+- ✅ 3.3 Classification and regression metrics on the joined labels ([#2](https://github.com/lakshaydevoo-arch/DriftWatch/issues/2))
   - ✅ 3.3a Engine: metrics per task in `/v1/performance` (positive-class
     policy approved by maintainer)
-  - ⏳ 3.3b Backend: store and return metrics with each labels upload
+  - ✅ 3.3b Backend: store and return metrics with each labels upload
 - ⏳ 3.4 Reference performance baseline and degradation rules ([#3](https://github.com/lakshaydevoo-arch/DriftWatch/issues/3))
 
 ## Milestone 4 — Dashboard (React + TypeScript) ⏳
