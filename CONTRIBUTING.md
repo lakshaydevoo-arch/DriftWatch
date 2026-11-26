@@ -2,8 +2,10 @@
 
 ## Workflow
 
-1. Pick a task from [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md).
-   Large tasks are split until each piece can be tested on its own.
+1. Pick a task from [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md); each
+   has a [GitHub issue](https://github.com/lakshaydevoo-arch/DriftWatch/issues).
+   Large tasks are split until each piece can be tested on its own. Use the
+   issue templates for bug reports and feature requests.
 2. Implement it with tests and documentation in the same change.
 3. Before committing:
    - `git status` and review the full diff,
@@ -11,7 +13,8 @@
    - check for secrets, credentials, large data files or build output,
    - update the module README, `DEVELOPMENT_LOG.md` and, for user-facing
      changes, `CHANGELOG.md` (`Unreleased` section).
-4. Commit one logical change per commit.
+4. Commit one logical change per commit. The commit (or pull request) that
+   finishes an issue says `Closes #N` in its body.
 
 Never commit failing tests, skipped tests without a written reason, or
 unfinished features. Do not amend published commits or force-push.

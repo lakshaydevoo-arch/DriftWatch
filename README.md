@@ -1,30 +1,41 @@
 # DriftWatch
 
+[![analytics](https://github.com/lakshaydevoo-arch/DriftWatch/actions/workflows/analytics.yml/badge.svg)](https://github.com/lakshaydevoo-arch/DriftWatch/actions/workflows/analytics.yml)
+[![backend](https://github.com/lakshaydevoo-arch/DriftWatch/actions/workflows/backend.yml/badge.svg)](https://github.com/lakshaydevoo-arch/DriftWatch/actions/workflows/backend.yml)
+[![engine-contract](https://github.com/lakshaydevoo-arch/DriftWatch/actions/workflows/engine-contract.yml/badge.svg)](https://github.com/lakshaydevoo-arch/DriftWatch/actions/workflows/engine-contract.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 **DriftWatch** is an open-source ML model monitoring platform. It compares
 production data against a model's reference data to detect **data drift**,
 **prediction drift** and **performance degradation**, using documented,
 reproducible statistical methods.
 
-> **Project status: early development.** Milestone 1 is complete: the
-> [analytics engine](analytics/) infers schemas, builds reference profiles and
-> detects numeric and categorical drift over an HTTP API. A CI workflow for
-> Python 3.12–3.14 is defined (verified locally; it runs on GitHub once the
-> repository is published). Milestone 2, the Spring Boot backend, has started
-> with its scaffold and health endpoints; the dashboard comes later.
-> See [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md) for progress.
+> **Project status: early development (v0.1 not released yet).** The
+> statistical engine (Milestone 1) and the backend API (Milestone 2) are
+> complete; Milestone 3 (prediction drift and performance) is in progress and
+> the dashboard comes next. Progress: [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md)
+> and the [issues](https://github.com/lakshaydevoo-arch/DriftWatch/issues).
 
-## What it will do
+## What it does today
 
-- Register a model and its reference dataset (CSV).
-- Upload production batches and run drift checks per feature:
-  - numeric: Population Stability Index, Kolmogorov–Smirnov, Wasserstein
-  - categorical: Jensen–Shannon distance, chi-square test
-- Detect data-quality problems: schema violations, missing-value spikes,
-  unseen categories.
-- Track model performance once ground-truth labels arrive.
-- Store every run with its configuration and dataset hashes so results can be
-  reproduced.
-- Show results in a web dashboard.
+- Register a model (task type, target, prediction and record id columns) and
+  its reference dataset (CSV); the schema is inferred and shown back.
+- Upload production batches; each becomes an asynchronous **monitoring run**
+  with per-feature drift results:
+  - numeric: Population Stability Index (drift flag), Kolmogorov–Smirnov and
+    normalised Wasserstein (reported)
+  - categorical: Jensen–Shannon distance (drift flag), chi-square (reported)
+  - a sample-size-aware noise floor that keeps false alarms on small batches
+    at about 1–2%
+- Report **prediction drift** separately from input drift.
+- Flag data-quality problems: schema violations, missing-value changes,
+  unseen categories, constant features.
+- Upload ground-truth labels later and join them to a run by record id, with
+  the join rate reported.
+- Keep every run with its configuration, engine version and dataset hashes.
+
+Coming next: performance metrics with degradation rules, a web dashboard and
+a Docker Compose setup ([roadmap](DEVELOPMENT_ROADMAP.md)).
 
 ## Architecture at a glance
 
@@ -37,7 +48,14 @@ reproducible statistical methods.
 Details: [ARCHITECTURE.md](ARCHITECTURE.md). Statistical methods, assumptions
 and limitations: [ML_MONITORING_DESIGN.md](ML_MONITORING_DESIGN.md).
 
-## Prerequisites (for upcoming milestones)
+## Getting started
+
+Each module's README has setup, run and test instructions:
+[analytics/README.md](analytics/README.md) (engine) and
+[backend/README.md](backend/README.md) (API). A one-command Docker Compose
+setup is planned (Milestone 5).
+
+## Prerequisites
 
 - Java 21 (JDK); Maven is downloaded by the backend's wrapper (`./mvnw`)
 - Python 3.12+
@@ -45,8 +63,6 @@ and limitations: [ML_MONITORING_DESIGN.md](ML_MONITORING_DESIGN.md).
 - PostgreSQL 16 (or Docker)
 - Docker (for integration tests and the full-stack setup)
 
-Setup and run instructions will be added to each module's README as the module
-is implemented.
 
 ## Documentation
 
@@ -59,8 +75,12 @@ is implemented.
 | [CHANGELOG.md](CHANGELOG.md) | User-facing changes per release |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Workflow, commit conventions, quality checks |
 
+## Contributing and security
+
+Contributions follow [CONTRIBUTING.md](CONTRIBUTING.md); planned work is
+tracked in [issues](https://github.com/lakshaydevoo-arch/DriftWatch/issues).
+Report vulnerabilities privately as described in [SECURITY.md](SECURITY.md).
+
 ## License
 
-Not yet chosen — see the open decision in
-[DEVELOPMENT_LOG.md](DEVELOPMENT_LOG.md). Until a license is added, all rights
-are reserved by the author.
+[MIT](LICENSE) © 2026 Lakshya Sharma

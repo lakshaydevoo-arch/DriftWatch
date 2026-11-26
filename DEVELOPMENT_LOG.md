@@ -7,6 +7,53 @@ following session's commit (or read with `git log`).
 
 ---
 
+## 2026-11-27 — Repository setup: license, templates, issues
+
+**What changed** (requested by the maintainer: "open relevant issues … make
+it a full-fledged repo")
+
+- MIT license (maintainer's choice), declared in `analytics/pyproject.toml`
+  (SPDX `license = "MIT"`, build requirement raised to setuptools 77 for
+  PEP 639) and `backend/pom.xml`.
+- `SECURITY.md` (no authentication in v0.x; private vulnerability reports),
+  issue templates (bug, feature) and a pull request template.
+- README: CI and license badges, an up-to-date status and "what it does
+  today" list (it still described Milestone 2 as just started), getting
+  started pointers, contributing/security/license sections.
+- On GitHub: labels (`area: analytics|backend|frontend|ci`, `statistics`,
+  `tech-debt`, `security`), milestones M3–M5, and issues #2–#19: one per
+  remaining roadmap task (3.3–5.4) plus known limitations already recorded in
+  the docs (single-instance recovery, immutable model columns, API auth,
+  workflow linting, store clean-up, metric confidence intervals). The roadmap
+  links each task to its issue; commits that finish one say `Closes #N`.
+- Issue #1 was opened by the maintainer about the co-author line; that was
+  resolved on 2026-11-22 (history rewritten before anyone cloned). Left open
+  for the maintainer to close.
+
+**Files changed**
+
+- `LICENSE`, `SECURITY.md`, `.github/ISSUE_TEMPLATE/*`,
+  `.github/pull_request_template.md` (new); `analytics/pyproject.toml`,
+  `backend/pom.xml`
+- `README.md`, `DEVELOPMENT_ROADMAP.md`, `CONTRIBUTING.md`, `CHANGELOG.md`,
+  this log
+
+**Tests executed**
+
+- `pip install --no-deps -e .` with the new metadata (reports
+  `License-Expression: MIT`), `pytest`: 379 passed; backend `spotless:check`
+  clean after the `pom.xml` change.
+
+**Commit hash**
+
+- To be recorded in the next entry (see `git log`).
+
+**Remaining work**
+
+- 3.3 (#2), then 3.4 (#3).
+
+---
+
 ## 2026-11-27 — Milestone 3.2b: label upload per run (backend)
 
 **Feature implemented**
@@ -80,7 +127,7 @@ following session's commit (or read with `git log`).
 
 **Commit hash**
 
-- To be recorded in the next entry (see `git log`).
+- `a91475a`
 
 **Remaining work**
 

@@ -72,33 +72,43 @@ Depends on: Milestone 1 API contracts (1.8).
   - ✅ 3.2a Engine: record id role, label join with join report,
     `POST /v1/performance`
   - ✅ 3.2b Backend: record id column on models, label upload per run
-- ⏳ 3.3 Classification and regression metrics with degradation rules
-- ⏳ 3.4 Reference performance baseline
+- ⏳ 3.3 Classification and regression metrics on the joined labels ([#2](https://github.com/lakshaydevoo-arch/DriftWatch/issues/2))
+- ⏳ 3.4 Reference performance baseline and degradation rules ([#3](https://github.com/lakshaydevoo-arch/DriftWatch/issues/3))
 
 ## Milestone 4 — Dashboard (React + TypeScript) ⏳
 
-- ⏳ 4.1 Vite + React + TS scaffold, ESLint, Prettier, Vitest, CI job
-- ⏳ 4.2 Typed API client for backend contracts
-- ⏳ 4.3 Models list and model detail page
-- ⏳ 4.4 Run detail: per-feature results table, drift flags, warnings
-- ⏳ 4.5 Distribution comparison charts (reference vs. current histograms)
-- ⏳ 4.6 Run history / drift over time
+- ⏳ 4.1 Vite + React + TS scaffold, ESLint, Prettier, Vitest, CI job ([#4](https://github.com/lakshaydevoo-arch/DriftWatch/issues/4))
+- ⏳ 4.2 Typed API client for backend contracts ([#5](https://github.com/lakshaydevoo-arch/DriftWatch/issues/5))
+- ⏳ 4.3 Models list and model detail page ([#6](https://github.com/lakshaydevoo-arch/DriftWatch/issues/6))
+- ⏳ 4.4 Run detail: per-feature results table, drift flags, warnings ([#7](https://github.com/lakshaydevoo-arch/DriftWatch/issues/7))
+- ⏳ 4.5 Distribution comparison charts (reference vs. current histograms) ([#8](https://github.com/lakshaydevoo-arch/DriftWatch/issues/8))
+- ⏳ 4.6 Run history / drift over time ([#9](https://github.com/lakshaydevoo-arch/DriftWatch/issues/9))
 
 ## Milestone 5 — Packaging and delivery ⏳
 
-- ⏳ 5.1 Dockerfiles for each service (multi-stage, non-root)
-- ⏳ 5.2 `docker-compose.yml` for local full-stack run + `.env.example`
-- ⏳ 5.3 Seeded demo script that registers a model and runs drift
+- ⏳ 5.1 Dockerfiles for each service (multi-stage, non-root) ([#10](https://github.com/lakshaydevoo-arch/DriftWatch/issues/10))
+- ⏳ 5.2 `docker-compose.yml` for local full-stack run + `.env.example` ([#11](https://github.com/lakshaydevoo-arch/DriftWatch/issues/11))
+- ⏳ 5.3 Seeded demo script that registers a model and runs drift ([#12](https://github.com/lakshaydevoo-arch/DriftWatch/issues/12))
   monitoring end to end
-- ⏳ 5.4 Release v0.1.0
+- ⏳ 5.4 Release v0.1.0 ([#13](https://github.com/lakshaydevoo-arch/DriftWatch/issues/13))
 
 ## Later / under consideration
 
-- API-key authentication
+- API-key authentication ([#16](https://github.com/lakshaydevoo-arch/DriftWatch/issues/16))
 - Scheduled monitoring runs
-- Benjamini–Hochberg correction; bootstrap confidence intervals
+- Benjamini–Hochberg correction; bootstrap confidence intervals ([#19](https://github.com/lakshaydevoo-arch/DriftWatch/issues/19))
 - Multivariate drift via domain classifier
 - Alerting (webhook / email)
 - Object storage for datasets
 
 Items here are not commitments; each will be justified before it is built.
+
+## Known limitations tracked as issues
+
+- Run recovery assumes a single backend instance ([#14](https://github.com/lakshaydevoo-arch/DriftWatch/issues/14))
+- Model columns cannot be changed after creation ([#15](https://github.com/lakshaydevoo-arch/DriftWatch/issues/15))
+- Workflows not yet checked with actionlint/zizmor ([#17](https://github.com/lakshaydevoo-arch/DriftWatch/issues/17))
+- Unreferenced files in the dataset store are never cleaned up ([#18](https://github.com/lakshaydevoo-arch/DriftWatch/issues/18))
+
+Every task and limitation has a GitHub issue; commits that finish one say
+`Closes #N`.

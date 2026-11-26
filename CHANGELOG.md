@@ -9,6 +9,8 @@ first release.
 
 ### Added
 
+- MIT license; security policy; GitHub issue and pull request templates.
+
 - Project documentation: architecture, ML monitoring design, roadmap,
   development log and contribution guide.
 - Repository structure for `analytics`, `backend` and `frontend` modules.
