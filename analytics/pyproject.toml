@@ -1,5 +1,6 @@
 [build-system]
-requires = ["setuptools>=69"]
+# 77+ understands the SPDX `license` string (PEP 639).
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -7,6 +8,7 @@ name = "driftwatch-analytics"
 version = "0.1.0.dev0"
 description = "Stateless statistical engine for DriftWatch drift and performance monitoring"
 readme = "README.md"
+license = "MIT"
 requires-python = ">=3.12"
 # Only dependencies that the code actually imports are listed.
 dependencies = [

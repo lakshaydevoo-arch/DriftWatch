@@ -14,6 +14,12 @@
   <version>0.1.0-SNAPSHOT</version>
   <name>DriftWatch Backend</name>
   <description>REST API, persistence and orchestration for DriftWatch</description>
+  <licenses>
+    <license>
+      <name>MIT License</name>
+      <url>https://opensource.org/licenses/MIT</url>
+    </license>
+  </licenses>
 
   <properties>
     <!-- Compiles with release 21: Java 21 bytecode and API, whatever JDK runs Maven. -->

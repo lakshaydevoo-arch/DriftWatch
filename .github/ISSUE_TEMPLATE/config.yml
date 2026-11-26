@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Design and methods
+    url: https://github.com/lakshaydevoo-arch/DriftWatch/blob/main/ML_MONITORING_DESIGN.md
+    about: Read how drift and performance are measured before proposing method changes.

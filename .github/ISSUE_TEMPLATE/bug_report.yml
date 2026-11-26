@@ -1,0 +1,36 @@
+name: Bug report
+description: Something does not work as documented
+labels: ["bug"]
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: Component
+      options: [analytics, backend, frontend, CI / build, documentation]
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: Include the request, the response (problem `type` and `detail`) and any log lines.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How to reproduce
+      description: Smallest steps or data that show the problem. Do not attach private datasets.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      placeholder: e.g. 0.1.0.dev0 or a commit hash
