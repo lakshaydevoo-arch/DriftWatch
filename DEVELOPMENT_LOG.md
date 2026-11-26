@@ -7,6 +7,89 @@ following session's commit (or read with `git log`).
 
 ---
 
+## 2026-11-27 — Milestone 3.2b: label upload per run (backend)
+
+**Feature implemented**
+
+- Models gain an optional `recordIdColumn` (API, entity, Flyway V5). The API
+  and two new check constraints require target, prediction and record id to
+  be different columns. `ModelService.create` keeps its four-argument form
+  (no record id) next to the new five-argument one.
+- Reference registration also sends `record_id_column` from the model (and
+  rejects it in client `options`, like the other role fields).
+- `POST /api/v1/runs/{runId}/labels` (multipart `labels`): stores the file,
+  calls the engine's `/v1/performance` with the run's pinned reference
+  profile and the run's batch, then stores a `LABELS` dataset and a
+  `run_labels` row with the join report in one transaction. `201` with the
+  report. `GET` returns the newest upload (`404 labels-not-found` if none).
+- V5: `run_labels` (composite foreign keys: the run and the labels file
+  belong to the same model, the file is a `LABELS` dataset), `LABELS` added to
+  the dataset roles.
+- `AnalyticsClient.performance` and `PerformanceResult`; the backend checks
+  that the report has the counts it relies on (else `502`).
+
+**Why this design**
+
+- *Synchronous* (unlike runs): a labels file is small and the join is a
+  merge, so a background job would add states without a benefit.
+- *Per run, using the run's pinned reference:* the join must use the same
+  schema (target type, id column) that the batch was monitored with, even if
+  a newer reference has been registered since.
+- *Any run status:* the join needs only the batch; a run that failed drift
+  (e.g. an engine outage) still has a batch whose labels can be joined.
+- *History kept:* a corrected labels file becomes current without losing the
+  earlier report.
+
+**Trade-offs and failure cases**
+
+- References registered before the model had a `recordIdColumn` (or a
+  target) give `labels-not-configured`; the model's columns cannot be changed
+  after creation yet, so such a model needs a new registration.
+- The whole labels file is held in memory by the engine, like batches.
+- Metrics are not computed yet (3.3); the stored report is only the join.
+
+**Files changed**
+
+- `backend/src/main/resources/db/migration/V5__add_labels.sql`
+- `backend/src/main/java/io/driftwatch/backend/labels/` (new): `RunLabels`,
+  `RunLabelsRepository`, `LabelService`, `LabelsController`,
+  `LabelsResponse`, `LabelsNotFoundException`
+- `model/`: `MonitoredModel`, `ModelService`, `ModelController`,
+  `ModelResponse`, `CreateModelRequest`; `reference/ReferenceService`;
+  `analytics/AnalyticsClient`, `PerformanceResult` (new);
+  `dataset/DatasetRole`; `common/ApiExceptionHandler`, `ProblemTypes`
+- Tests: `labels/LabelsApiTest` (10), `labels/LabelsSchemaTest` (7),
+  `labels/LabelsEngineContractTest` (2, real engine); `model/ModelApiTest`,
+  `reference/ReferenceApiTest`, `DatabaseSchemaTest`, `TestDatabase`
+- Docs: `backend/README.md`, `ARCHITECTURE.md`, `DEVELOPMENT_ROADMAP.md`,
+  `CHANGELOG.md`, this log
+
+**Tests executed**
+
+- `./mvnw verify`: 202 passed, 21 skipped (engine-contract tests, gated),
+  Spotless clean.
+- With a locally started real engine, full suite in reverse order: 223
+  passed, 0 skipped. The contract test joins labels for 150 of 200 batch rows
+  (one empty label, five unknown ids) and checks every count and
+  `join_rate = 149/200`; duplicate ids are rejected by the real engine.
+- `LabelsApiTest` repeated 3 times: green.
+- Two expectations were wrong in my tests and fixed: the model table's
+  column list (V5 adds `record_id_column` last), and a constraint test that
+  checked two violations in one transaction (PostgreSQL aborts the
+  transaction after the first); it is now parameterised.
+
+**Commit hash**
+
+- To be recorded in the next entry (see `git log`).
+
+**Remaining work**
+
+- 3.3: classification and regression metrics on the joined rows, with
+  degradation rules.
+- Push 3.2a and 3.2b when approved. License decision (open).
+
+---
+
 ## 2026-11-27 — Milestone 3.2a: joining labels by record id (engine)
 
 **Feature implemented**
@@ -62,7 +145,7 @@ following session's commit (or read with `git log`).
 
 **Commit hash**
 
-- To be recorded in the next entry (see `git log`).
+- `9dc600d`
 
 **Remaining work**
 

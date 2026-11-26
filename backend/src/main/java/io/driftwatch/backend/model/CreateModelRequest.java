@@ -20,7 +20,8 @@ public record CreateModelRequest(
         String name,
     @NotNull TaskType taskType,
     @Size(max = 255) @Pattern(regexp = COLUMN_PATTERN, message = COLUMN_MESSAGE) String targetColumn,
-    @Size(max = 255) @Pattern(regexp = COLUMN_PATTERN, message = COLUMN_MESSAGE) String predictionColumn) {
+    @Size(max = 255) @Pattern(regexp = COLUMN_PATTERN, message = COLUMN_MESSAGE) String predictionColumn,
+    @Size(max = 255) @Pattern(regexp = COLUMN_PATTERN, message = COLUMN_MESSAGE) String recordIdColumn) {
 
   /** URL-safe slug, e.g. {@code credit-risk-v2}. */
   static final String NAME_PATTERN = "^[a-z0-9](?:[a-z0-9-]{0,98}[a-z0-9])?$";
@@ -42,5 +43,11 @@ public record CreateModelRequest(
     return targetColumn == null
         || predictionColumn == null
         || !targetColumn.equals(predictionColumn);
+  }
+
+  /** The record id joins labels; it cannot also be the label or the prediction. */
+  @AssertTrue(message = "must be a different column from targetColumn and predictionColumn") boolean isRecordIdColumnDifferentFromTheOthers() {
+    return recordIdColumn == null
+        || (!recordIdColumn.equals(targetColumn) && !recordIdColumn.equals(predictionColumn));
   }
 }

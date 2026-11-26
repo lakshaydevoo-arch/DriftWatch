@@ -33,7 +33,11 @@ class ModelController {
   ResponseEntity<ModelResponse> create(@Valid @RequestBody CreateModelRequest request) {
     MonitoredModel model =
         service.create(
-            request.name(), request.taskType(), request.targetColumn(), request.predictionColumn());
+            request.name(),
+            request.taskType(),
+            request.targetColumn(),
+            request.predictionColumn(),
+            request.recordIdColumn());
     URI location =
         ServletUriComponentsBuilder.fromCurrentRequest()
             .path("/{id}")

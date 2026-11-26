@@ -7,7 +7,7 @@ public final class TestDatabase {
 
   /** Children before parents, so foreign keys (ON DELETE RESTRICT) never block a delete. */
   private static final String[] TABLES_IN_DELETE_ORDER = {
-    "monitoring_run", "reference_profile", "dataset", "monitored_model"
+    "run_labels", "monitoring_run", "reference_profile", "dataset", "monitored_model"
   };
 
   private TestDatabase() {}

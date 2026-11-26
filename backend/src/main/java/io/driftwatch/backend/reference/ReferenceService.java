@@ -33,7 +33,7 @@ public class ReferenceService {
 
   /** Profile options that come from the registered model, never from the client. */
   private static final List<String> MODEL_FIELDS =
-      List.of("task_type", "prediction_column", "target_column");
+      List.of("task_type", "prediction_column", "target_column", "record_id_column");
 
   private final ModelService models;
   private final DatasetService datasets;
@@ -154,6 +154,9 @@ public class ReferenceService {
     }
     if (model.getTargetColumn() != null) {
       merged.put("target_column", model.getTargetColumn());
+    }
+    if (model.getRecordIdColumn() != null) {
+      merged.put("record_id_column", model.getRecordIdColumn());
     }
     return merged;
   }

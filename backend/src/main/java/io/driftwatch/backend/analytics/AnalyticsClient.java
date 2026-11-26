@@ -116,6 +116,31 @@ public class AnalyticsClient {
   }
 
   /**
+   * Joins ground-truth labels to a batch by record id ({@code POST /v1/performance}).
+   *
+   * @param profileJson the profile exactly as stored (sent as a file part, like for drift)
+   */
+  public PerformanceResult performance(
+      byte[] profileJson,
+      Resource current,
+      String currentFilename,
+      Resource labels,
+      String labelsFilename) {
+    MultiValueMap<String, Object> parts = new LinkedMultiValueMap<>();
+    parts.add(
+        "profile",
+        filePart(
+            "profile",
+            "profile.json",
+            MediaType.APPLICATION_JSON,
+            new ByteArrayResource(profileJson)));
+    parts.add("current", filePart("current", currentFilename, TEXT_CSV, current));
+    parts.add("labels", filePart("labels", labelsFilename, TEXT_CSV, labels));
+    JsonNode body = execute("performance", post("/v1/performance", parts));
+    return new PerformanceResult(require(body, "join"), text(body, "engine_version"));
+  }
+
+  /**
    * A file part. Built as an {@link HttpEntity} for the servlet-side {@code
    * FormHttpMessageConverter}; Spring's {@code MultipartBodyBuilder} would pull in the reactive
    * stack, which this application does not use.

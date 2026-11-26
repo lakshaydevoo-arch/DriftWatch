@@ -260,7 +260,10 @@ class ReferenceApiTest {
 
   @Test
   void theModelsPredictionAndTargetColumnsAreSentToTheEngine() throws Exception {
-    UUID model = models.create("scored", TaskType.REGRESSION, "price", "predicted_price").getId();
+    UUID model =
+        models
+            .create("scored", TaskType.REGRESSION, "price", "predicted_price", "listing_id")
+            .getId();
 
     upload(
         model,
@@ -273,13 +276,15 @@ class ReferenceApiTest {
             json.readTree(
                 """
                 {"exclude": ["id"], "task_type": "regression",
-                 "prediction_column": "predicted_price", "target_column": "price"}
+                 "prediction_column": "predicted_price", "target_column": "price",
+                 "record_id_column": "listing_id"}
                 """));
   }
 
   @Test
   void optionsCannotSetWhatTheModelDefines() throws Exception {
-    for (String field : List.of("task_type", "prediction_column", "target_column")) {
+    for (String field :
+        List.of("task_type", "prediction_column", "target_column", "record_id_column")) {
       HttpResponse<String> response =
           upload(
               modelId,

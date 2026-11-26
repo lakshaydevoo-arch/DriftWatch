@@ -123,7 +123,7 @@ is reported alongside the metrics.
 
 ```text
 monitored_model(id, name UNIQUE, task_type, target_column, prediction_column,
-                created_at)
+                record_id_column, created_at)     -- record_id_column: V5
 dataset(id, model_id FK, role, sha256, byte_size, original_filename,
         created_at)                      -- V2; row_count, status, schema: 2.6
 reference_profile(id, model_id FK, dataset_id UNIQUE, engine_version,
@@ -134,6 +134,9 @@ monitoring_run(id, model_id FK, reference_profile_id FK, current_dataset_id FK
                result JSONB, error_kind, error_message, error_details JSONB,
                created_at, started_at, finished_at)
                -- V4; check constraints tie each status to its fields
+run_labels(id, run_id FK, model_id, dataset_id FK UNIQUE, engine_version,
+           join_report JSONB, created_at)
+           -- V5; also adds monitored_model.record_id_column and the LABELS role
 ```
 
 The earlier sketch had a separate `feature_drift_result` table. It was
@@ -158,6 +161,8 @@ are application-generated UUIDs.
 | `GET`  | `/api/v1/runs/{runId}` | Run status and summary (implemented) |
 | `GET`  | `/api/v1/runs/{runId}/features` | Per-feature drift results (implemented) |
 | `GET`  | `/api/v1/models/{id}/runs` | Run history, paginated (implemented) |
+| `POST` | `/api/v1/runs/{runId}/labels` | Upload ground-truth labels; returns the join report (implemented) |
+| `GET`  | `/api/v1/runs/{runId}/labels` | Newest labels of a run (implemented) |
 
 Internal engine API (`analytics`, not exposed publicly):
 

@@ -134,6 +134,52 @@ class ModelApiTest {
     assertThat(response.statusCode()).isEqualTo(201);
     assertThat(body(response).get("targetColumn").isNull()).isTrue();
     assertThat(body(response).get("predictionColumn").isNull()).isTrue();
+    assertThat(body(response).get("recordIdColumn").isNull()).isTrue();
+  }
+
+  @Test
+  void aRecordIdColumnIsStoredAndReturned() throws Exception {
+    HttpResponse<String> response =
+        post(
+            """
+            {"name": "credit-risk", "taskType": "BINARY_CLASSIFICATION",
+             "targetColumn": "defaulted", "predictionColumn": "score",
+             "recordIdColumn": "application id"}
+            """);
+
+    assertThat(response.statusCode()).isEqualTo(201);
+    JsonNode created = body(response);
+    assertThat(created.get("recordIdColumn").asString()).isEqualTo("application id");
+    assertThat(body(get("/api/v1/models/" + created.get("id").asString()))).isEqualTo(created);
+  }
+
+  @Test
+  void theRecordIdMustDifferFromTheTargetAndThePrediction() throws Exception {
+    for (String column : List.of("defaulted", "score")) {
+      String body =
+          """
+          {"name": "m", "taskType": "BINARY_CLASSIFICATION", "targetColumn": "defaulted",
+           "predictionColumn": "score", "recordIdColumn": "%s"}
+          """
+              .formatted(column);
+
+      JsonNode error = assertProblem(post(body), 400, "invalid-request").get("errors").get(0);
+
+      assertThat(error.get("field").asString()).isEqualTo("recordIdColumnDifferentFromTheOthers");
+      assertThat(error.get("message").asString())
+          .isEqualTo("must be a different column from targetColumn and predictionColumn");
+    }
+  }
+
+  @Test
+  void aBlankRecordIdColumnIsRejected() throws Exception {
+    JsonNode problem =
+        assertProblem(
+            post("{\"name\": \"m\", \"taskType\": \"REGRESSION\", \"recordIdColumn\": \" \"}"),
+            400,
+            "invalid-request");
+
+    assertThat(problem.get("errors").get(0).get("field").asString()).isEqualTo("recordIdColumn");
   }
 
   @Test

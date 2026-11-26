@@ -58,7 +58,8 @@ class DatabaseSchemaTest {
             tuple("1", "create monitored model", true),
             tuple("2", "create dataset", true),
             tuple("3", "create reference profile", true),
-            tuple("4", "create monitoring run", true));
+            tuple("4", "create monitoring run", true),
+            tuple("5", "add labels", true));
   }
 
   @Test
@@ -87,7 +88,9 @@ class DatabaseSchemaTest {
             tuple("task_type", "character varying", "NO"),
             tuple("target_column", "character varying", "YES"),
             tuple("prediction_column", "character varying", "YES"),
-            tuple("created_at", "timestamp with time zone", "NO"));
+            tuple("created_at", "timestamp with time zone", "NO"),
+            // Added by V5, so it comes last.
+            tuple("record_id_column", "character varying", "YES"));
   }
 
   @Test

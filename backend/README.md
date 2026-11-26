@@ -101,14 +101,16 @@ curl -i -H 'Content-Type: application/json' localhost:8080/api/v1/models -d '{
   "name": "credit-risk",
   "taskType": "BINARY_CLASSIFICATION",
   "targetColumn": "defaulted",
-  "predictionColumn": "default_probability"
+  "predictionColumn": "default_probability",
+  "recordIdColumn": "application_id"
 }'
 ```
 
 ```json
 {"id": "01a1feec-582f-7126-883a-4d3afc6e888e", "name": "credit-risk",
  "taskType": "BINARY_CLASSIFICATION", "targetColumn": "defaulted",
- "predictionColumn": "default_probability", "createdAt": "2026-11-21T16:24:24.364421Z"}
+ "predictionColumn": "default_probability", "recordIdColumn": "application_id",
+ "createdAt": "2026-11-21T16:24:24.364421Z"}
 ```
 
 **Request rules** (invalid input is rejected, never silently corrected):
@@ -117,7 +119,7 @@ curl -i -H 'Content-Type: application/json' localhost:8080/api/v1/models -d '{
 |-------|------|
 | `name` | Required. 1–100 lowercase letters, digits or hyphens, starting and ending with a letter or digit (`credit-risk-v2`). Unique. |
 | `taskType` | Required. `BINARY_CLASSIFICATION`, `MULTICLASS_CLASSIFICATION` or `REGRESSION`. |
-| `targetColumn`, `predictionColumn` | Optional, up to 255 characters. Spaces inside are allowed (`mean radius`); blank values, leading/trailing whitespace and line breaks are not. They must be different columns. |
+| `targetColumn`, `predictionColumn`, `recordIdColumn` | Optional, up to 255 characters. Spaces inside are allowed (`mean radius`); blank values, leading/trailing whitespace and line breaks are not. All three must be different columns (checked by the API and by database constraints). `recordIdColumn` identifies a record in batches and labels, so labels can be joined later. |
 | other fields | Rejected, so a typo such as `"tasktype"` is an error rather than ignored. |
 
 **Response:** `id` is a time-ordered UUID (version 7). `createdAt` is an
@@ -162,8 +164,8 @@ Request (`multipart/form-data`): `file` (the reference CSV) and optional
 `options`, a JSON
 [`ProfileOptions`](../analytics/README.md#profileoptions) object. The backend
 checks that `options` is a JSON object and adds the **model's** `task_type`,
-`prediction_column` and `target_column`; the engine validates the rest.
-Those three fields come only from the registered model: setting them in
+`prediction_column`, `target_column` and `record_id_column`; the engine
+validates the rest. Those fields come only from the registered model: setting them in
 `options` is a `400` (`'options.task_type' is set from the model …`), so a
 reference can never contradict its model.
 
@@ -375,6 +377,58 @@ model. Each batch belongs to one run.
 |----------|---------|---------|
 | `driftwatch.runs.concurrency` (`DRIFTWATCH_RUNS_CONCURRENCY`) | `2` | Runs sent to the engine at once (each holds a whole batch in the engine's memory) |
 | `driftwatch.runs.queue-capacity` (`DRIFTWATCH_RUNS_QUEUE_CAPACITY`) | `20` | Accepted runs that may wait for a worker |
+
+## Labels API
+
+Ground-truth labels usually arrive days after a batch was monitored. They are
+uploaded per run and joined to that run's batch by the model's
+`recordIdColumn`.
+
+| Method | Path | Success | Errors |
+|--------|------|---------|--------|
+| `POST` | `/api/v1/runs/{runId}/labels` | `201` + `Location` + labels with join report | `400`, `404`, `413`, `415`, `422`, `502`, `503` |
+| `GET` | `/api/v1/runs/{runId}/labels` | `200` newest labels | `404` (`run-not-found`, `labels-not-found`) |
+
+```bash
+curl -F labels=@labels.csv localhost:8080/api/v1/runs/$RUN_ID/labels
+```
+
+Request (`multipart/form-data`): `labels`, a CSV with the record id column
+and the target column (other columns are ignored).
+
+```json
+{"id": "...", "runId": "...",
+ "dataset": {"id": "...", "sha256": "...", "byteSize": 1534, "originalFilename": "labels.csv"},
+ "engineVersion": "0.1.0.dev0",
+ "join": {"n_current_rows": 200, "n_label_rows": 155, "n_current_without_id": 0,
+          "n_labels_without_id": 0, "n_matched": 150, "n_missing_labels": 1,
+          "n_invalid_labels": 0, "n_joined": 149, "n_unmatched_labels": 5,
+          "join_rate": 0.745},
+ "createdAt": "..."}
+```
+
+`join` is the engine's report, as returned (field meanings and join rules:
+[analytics/README.md](../analytics/README.md#joinreport-v1performance)).
+Performance metrics on the joined rows come with task 3.3.
+
+**How it works.** Like reference registration: store the file (no
+transaction), have the engine join it with the run's batch and the reference
+the run was pinned to (synchronous: a labels file is small), then insert the
+`LABELS` dataset and the report in one transaction, only if the engine
+succeeded. Labels can be uploaded for a run in any status (the join needs
+only the batch). Uploading again keeps the earlier upload; the newest is
+current. The database checks that the labels belong to a run of the same
+model (Flyway V5).
+
+**Errors specific to these endpoints**
+
+| Status | `type` suffix | When |
+|--------|---------------|------|
+| 422 | `labels-not-configured` | The run's reference was registered without `targetColumn` or `recordIdColumn` on the model |
+| 422 | `duplicate-record-ids` | An id repeats in the batch or the labels (`errors` gives counts, never ids) |
+| 422 | `schema-mismatch` | The batch lacks the record id column, or the labels lack it or the target |
+| 422 | `invalid-csv` | The labels file is not valid CSV |
+| 404 | `labels-not-found` | `GET` for a run with no labels yet |
 
 ## Dataset storage
 

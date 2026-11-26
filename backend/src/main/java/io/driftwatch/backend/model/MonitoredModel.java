@@ -42,6 +42,10 @@ public class MonitoredModel {
    * truncation, the value returned right after creation (nanoseconds on Linux) would differ from
    * the value read back later.
    */
+  /** Identifies a record in batches and labels, so late labels can be joined (V5). */
+  @Column(name = "record_id_column", updatable = false)
+  private String recordIdColumn;
+
   @Column(name = "created_at", nullable = false, updatable = false)
   private Instant createdAt;
 
@@ -50,11 +54,16 @@ public class MonitoredModel {
   }
 
   public MonitoredModel(
-      String name, TaskType taskType, String targetColumn, String predictionColumn) {
+      String name,
+      TaskType taskType,
+      String targetColumn,
+      String predictionColumn,
+      String recordIdColumn) {
     this.name = name;
     this.taskType = taskType;
     this.targetColumn = targetColumn;
     this.predictionColumn = predictionColumn;
+    this.recordIdColumn = recordIdColumn;
     this.createdAt = Instant.now().truncatedTo(ChronoUnit.MICROS);
   }
 
@@ -76,6 +85,10 @@ public class MonitoredModel {
 
   public String getPredictionColumn() {
     return predictionColumn;
+  }
+
+  public String getRecordIdColumn() {
+    return recordIdColumn;
   }
 
   public Instant getCreatedAt() {

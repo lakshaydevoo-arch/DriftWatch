@@ -31,17 +31,28 @@ public class ModelService {
    */
   @Transactional
   public MonitoredModel create(
-      String name, TaskType taskType, String targetColumn, String predictionColumn) {
+      String name,
+      TaskType taskType,
+      String targetColumn,
+      String predictionColumn,
+      String recordIdColumn) {
     try {
       // Flush now so a constraint violation surfaces here, inside the try.
       return repository.saveAndFlush(
-          new MonitoredModel(name, taskType, targetColumn, predictionColumn));
+          new MonitoredModel(name, taskType, targetColumn, predictionColumn, recordIdColumn));
     } catch (DataIntegrityViolationException e) {
       if (isNameConflict(e)) {
         throw new ModelNameTakenException(name, e);
       }
       throw e;
     }
+  }
+
+  /** Creates a model without a record id column (no label joins). */
+  @Transactional
+  public MonitoredModel create(
+      String name, TaskType taskType, String targetColumn, String predictionColumn) {
+    return create(name, taskType, targetColumn, predictionColumn, null);
   }
 
   @Transactional(readOnly = true)

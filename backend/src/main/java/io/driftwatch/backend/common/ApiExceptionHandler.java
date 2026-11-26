@@ -6,6 +6,7 @@ import io.driftwatch.backend.analytics.AnalyticsUnavailableException;
 import io.driftwatch.backend.dataset.EmptyUploadException;
 import io.driftwatch.backend.dataset.InvalidUploadException;
 import io.driftwatch.backend.dataset.UploadTooLargeException;
+import io.driftwatch.backend.labels.LabelsNotFoundException;
 import io.driftwatch.backend.model.ModelNameTakenException;
 import io.driftwatch.backend.model.ModelNotFoundException;
 import io.driftwatch.backend.reference.InvalidOptionsException;
@@ -158,6 +159,12 @@ class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         ProblemTypes.REFERENCE_NOT_FOUND,
         "Reference not found",
         ex.getMessage());
+  }
+
+  @ExceptionHandler(LabelsNotFoundException.class)
+  ProblemDetail handleLabelsNotFound(LabelsNotFoundException ex) {
+    return problem(
+        HttpStatus.NOT_FOUND, ProblemTypes.LABELS_NOT_FOUND, "Labels not found", ex.getMessage());
   }
 
   @ExceptionHandler(RunNotFoundException.class)

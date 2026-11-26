@@ -83,3 +83,6 @@ first release.
   joins late ground-truth labels to a batch by record id and reports the join
   (`join_rate` and counts of every kind of gap); duplicate ids are rejected
   (`duplicate-record-ids`) without echoing them.
+- `backend`: `recordIdColumn` on models (Flyway V5), sent when profiling;
+  `POST`/`GET /api/v1/runs/{runId}/labels` uploads ground-truth labels for a
+  run and stores the engine's join report (`labels-not-found` 404).

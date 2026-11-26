@@ -10,6 +10,7 @@ public record ModelResponse(
     TaskType taskType,
     String targetColumn,
     String predictionColumn,
+    String recordIdColumn,
     Instant createdAt) {
 
   static ModelResponse from(MonitoredModel model) {
@@ -19,6 +20,7 @@ public record ModelResponse(
         model.getTaskType(),
         model.getTargetColumn(),
         model.getPredictionColumn(),
+        model.getRecordIdColumn(),
         model.getCreatedAt());
   }
 }
