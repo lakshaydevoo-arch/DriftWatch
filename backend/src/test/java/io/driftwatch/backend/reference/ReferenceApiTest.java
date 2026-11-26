@@ -182,10 +182,10 @@ class ReferenceApiTest {
         .isEqualTo(
             json.readTree(
                 """
-                [{"name": "age", "logicalType": "numeric", "monitored": true,
+                [{"name": "age", "logicalType": "numeric", "role": "feature", "monitored": true,
                   "excludedReason": null},
-                 {"name": "id", "logicalType": "categorical", "monitored": false,
-                  "excludedReason": "likely_identifier"}]
+                 {"name": "id", "logicalType": "categorical", "role": "feature",
+                  "monitored": false, "excludedReason": "likely_identifier"}]
                 """));
     assertThat(reference.get("issues").get(0).get("code").asString()).isEqualTo("schema_violation");
   }
@@ -245,14 +245,69 @@ class ReferenceApiTest {
             .file("file", "reference.csv", "text/csv", CSV)
             .field("options", "{\"exclude\": [\"id\"]}"));
 
-    assertThat(optionsSentToEngine.get()).isEqualTo(json.readTree("{\"exclude\": [\"id\"]}"));
+    assertThat(optionsSentToEngine.get())
+        .isEqualTo(
+            json.readTree("{\"exclude\": [\"id\"], \"task_type\": \"binary_classification\"}"));
   }
 
   @Test
-  void withoutOptionsTheEngineGetsNone() throws Exception {
+  void withoutOptionsTheEngineStillGetsTheModelsTaskType() throws Exception {
     upload(modelId, CSV);
 
-    assertThat(optionsSentToEngine.get()).isNull();
+    assertThat(optionsSentToEngine.get())
+        .isEqualTo(json.readTree("{\"task_type\": \"binary_classification\"}"));
+  }
+
+  @Test
+  void theModelsPredictionAndTargetColumnsAreSentToTheEngine() throws Exception {
+    UUID model = models.create("scored", TaskType.REGRESSION, "price", "predicted_price").getId();
+
+    upload(
+        model,
+        new Multipart()
+            .file("file", "reference.csv", "text/csv", CSV)
+            .field("options", "{\"exclude\": [\"id\"]}"));
+
+    assertThat(optionsSentToEngine.get())
+        .isEqualTo(
+            json.readTree(
+                """
+                {"exclude": ["id"], "task_type": "regression",
+                 "prediction_column": "predicted_price", "target_column": "price"}
+                """));
+  }
+
+  @Test
+  void optionsCannotSetWhatTheModelDefines() throws Exception {
+    for (String field : List.of("task_type", "prediction_column", "target_column")) {
+      HttpResponse<String> response =
+          upload(
+              modelId,
+              new Multipart()
+                  .file("file", "reference.csv", "text/csv", CSV)
+                  .field("options", "{\"" + field + "\": \"x\"}"));
+
+      assertThat(response.statusCode()).as(field).isEqualTo(400);
+      JsonNode problem = json.readTree(response.body());
+      assertThat(problem.get("type").asString())
+          .isEqualTo("urn:driftwatch:problem:invalid-parameter");
+      assertThat(problem.get("detail").asString())
+          .isEqualTo("'options." + field + "' is set from the model and cannot be given here");
+    }
+    verify(analytics, never()).profile(any(), anyString(), any());
+    assertThat(count("dataset")).isZero();
+  }
+
+  @Test
+  void columnRolesFromTheEngineAreShown() throws Exception {
+    String age = "{\"name\": \"age\", \"logical_type\": \"numeric\", \"source\": \"inferred\",";
+    assertThat(PROFILE).contains(age);
+    engineReturns(PROFILE.replace(age, age + " \"role\": \"prediction\","), "[]");
+
+    JsonNode columns = json.readTree(upload(modelId, CSV).body()).get("columns");
+
+    assertThat(columns.get(0).get("role").asString()).isEqualTo("prediction");
+    assertThat(columns.get(1).get("role").asString()).isEqualTo("feature");
   }
 
   // --- the engine says no ---------------------------------------------------------------

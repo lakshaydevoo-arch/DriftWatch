@@ -76,3 +76,6 @@ first release.
   categorical) and reported as `summary.prediction_drift`, separately from
   input drift; the target is kept but not drift-tested, and may be absent
   from current batches. Existing profiles keep working.
+- `backend`: reference registration sends the model's task type and
+  prediction/target columns to the engine (clients cannot override them in
+  `options`), and the reference's columns show their `role`.

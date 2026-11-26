@@ -160,18 +160,33 @@ curl -F file=@reference.csv -F 'options={"exclude": ["customer_id"]}' \
 
 Request (`multipart/form-data`): `file` (the reference CSV) and optional
 `options`, a JSON
-[`ProfileOptions`](../analytics/README.md#profileoptions) object passed to the
-engine unchanged. The backend checks only that `options` is a JSON object;
-the engine validates its content.
+[`ProfileOptions`](../analytics/README.md#profileoptions) object. The backend
+checks that `options` is a JSON object and adds the **model's** `task_type`,
+`prediction_column` and `target_column`; the engine validates the rest.
+Those three fields come only from the registered model: setting them in
+`options` is a `400` (`'options.task_type' is set from the model …`), so a
+reference can never contradict its model.
+
+With a prediction column, the engine monitors it as prediction drift
+(reported apart from input drift in each run's `summary.prediction_drift`);
+the target column is kept but not drift-tested, so production batches may
+leave it out. See
+[analytics/README.md](../analytics/README.md#profileoptions) for how the
+prediction's type is chosen.
 
 ```json
 {"id": "...", "modelId": "...",
  "dataset": {"id": "...", "sha256": "...", "byteSize": 14231, "originalFilename": "reference.csv"},
  "rowCount": 500, "engineVersion": "0.1.0.dev0",
  "columns": [
-   {"name": "age", "logicalType": "numeric", "monitored": true, "excludedReason": null},
-   {"name": "customer_id", "logicalType": "categorical", "monitored": false,
-    "excludedReason": "likely_identifier"}],
+   {"name": "age", "logicalType": "numeric", "role": "feature", "monitored": true,
+    "excludedReason": null},
+   {"name": "customer_id", "logicalType": "categorical", "role": "feature",
+    "monitored": false, "excludedReason": "likely_identifier"},
+   {"name": "score", "logicalType": "numeric", "role": "prediction", "monitored": true,
+    "excludedReason": null},
+   {"name": "defaulted", "logicalType": "boolean", "role": "target", "monitored": false,
+    "excludedReason": "target_column"}],
  "issues": [], "createdAt": "2026-11-21T17:02:11.123456Z"}
 ```
 
@@ -202,7 +217,7 @@ foreign key on `(dataset_id, model_id, role)`).
 
 | Status | `type` suffix | When |
 |--------|---------------|------|
-| 400 | `empty-upload`, `invalid-upload`, `invalid-request`, `invalid-parameter` | Empty file, bad file name, missing `file` part, `options` not a JSON object |
+| 400 | `empty-upload`, `invalid-upload`, `invalid-request`, `invalid-parameter` | Empty file, bad file name, missing `file` part, `options` not a JSON object or setting a field that comes from the model |
 | 413 | `upload-too-large` | Over the multipart limit, the file store's limit, or the engine's limit |
 | 422 | *the engine's type*: `invalid-csv`, `empty-dataset`, `invalid-options`, `unprofilable-dataset` | The engine rejected the data; `detail` and `errors` are passed through |
 | 502 | `analytics-protocol-error` | The engine's response broke the contract (logged) |

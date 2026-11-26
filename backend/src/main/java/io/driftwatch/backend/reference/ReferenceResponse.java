@@ -28,9 +28,10 @@ public record ReferenceResponse(
 
   /** One column of the inferred schema. */
   public record ColumnView(
-      String name, String logicalType, boolean monitored, String excludedReason) {}
+      String name, String logicalType, String role, boolean monitored, String excludedReason) {}
 
-  static ReferenceResponse of(Reference reference, Dataset dataset, JsonMapper json) {
+  /** The API view of a registered reference. */
+  public static ReferenceResponse of(Reference reference, Dataset dataset, JsonMapper json) {
     JsonNode profile = json.readTree(reference.getProfile());
     List<ColumnView> columns = new ArrayList<>();
     for (JsonNode column : profile.path("dataset_schema").path("columns")) {
@@ -40,6 +41,8 @@ public record ReferenceResponse(
           new ColumnView(
               column.path("name").asString(),
               column.path("logical_type").asString(),
+              // Profiles stored before roles existed have none: they are all features.
+              column.path("role").asString("feature"),
               monitored,
               monitored ? null : excluded.asString()));
     }

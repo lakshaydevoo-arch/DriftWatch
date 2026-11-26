@@ -7,6 +7,66 @@ following session's commit (or read with `git log`).
 
 ---
 
+## 2026-11-27 — Milestone 3.1b: model columns sent to the engine (backend)
+
+**Feature implemented**
+
+- `ReferenceService.register` merges the client's `options` with the
+  model's `task_type` (always), `prediction_column` and `target_column` (when
+  set) before profiling. A client `options` that sets any of the three is
+  `400 invalid-parameter`, checked before the upload is stored.
+- `ReferenceResponse` columns include `role` (`feature` for profiles that
+  predate roles).
+- Runs need no change: the roles live in the stored profile, so
+  `summary.prediction_drift` and label-less batches work for every run of a
+  model registered with these columns.
+
+**Why this design**
+
+- The model registry already records the task and the two columns (2.3);
+  making them the only source avoids a reference whose roles contradict the
+  model, which would silently skew prediction drift and later performance
+  metrics.
+- Always sending `task_type` costs nothing and keeps the engine's view of the
+  model complete for Milestone 3.
+
+**Trade-offs and failure cases**
+
+- References registered before this change have no roles; re-register the
+  reference to get prediction drift for such a model.
+- A model whose prediction or target column is not in the CSV gets the
+  engine's `invalid-options` (422) at registration, naming the column.
+
+**Files changed**
+
+- `backend/src/main/java/io/driftwatch/backend/reference/ReferenceService.java`,
+  `ReferenceResponse.java`
+- Tests: `reference/ReferenceApiTest` (model columns sent, options cannot set
+  them, roles shown, role default), `run/PredictionDriftEngineContractTest`
+  (new, real engine)
+- Docs: `backend/README.md`, `DEVELOPMENT_ROADMAP.md`, `CHANGELOG.md`, this log
+
+**Tests executed**
+
+- `./mvnw verify`: 182 passed, 19 skipped (engine-contract tests, gated),
+  Spotless clean.
+- With a locally started real engine, full suite in reverse order: 201
+  passed, 0 skipped. The new contract test checks a probability `score`
+  inferred as the numeric prediction, `defaulted` as the target, prediction
+  drift flagged on shifted scores with no input drift, a label-less batch
+  accepted with no issues, and a batch without predictions rejected.
+
+**Commit hash**
+
+- To be recorded in the next entry (see `git log`).
+
+**Remaining work**
+
+- 3.2: ground-truth upload and join by `record_id`, with join-rate reporting.
+- Push 3.1a and 3.1b when approved. License decision (open).
+
+---
+
 ## 2026-11-27 — Milestone 3.1a: prediction and target columns (engine)
 
 **Feature implemented**
@@ -78,7 +138,7 @@ following session's commit (or read with `git log`).
 
 **Commit hash**
 
-- To be recorded in the next entry (see `git log`).
+- `82370a9`
 
 **Remaining work**
 
