@@ -7,6 +7,71 @@ following session's commit (or read with `git log`).
 
 ---
 
+## 2026-11-27 — Milestone 3.2a: joining labels by record id (engine)
+
+**Feature implemented**
+
+- `record_id_column` profile option and `ColumnRole.RECORD_ID`: the id column
+  keeps its inferred type, is excluded (`record_id`) and never drift-tested.
+  All three role columns must be different; none may be excluded.
+- `performance.join_labels`: joins a labels CSV to a batch by record id and
+  returns a `JoinReport` (rows on each side, rows without an id, matched,
+  missing labels, invalid labels, joined, unmatched labels, `join_rate`) plus
+  the joined rows (record id, batch row, parsed label) for 3.3's metrics.
+- `POST /v1/performance` (`profile`, `current`, `labels`) returns the join
+  report. New problem kinds: `labels-not-configured` (profile has no target
+  or record id) and `duplicate-record-ids`; missing id/target columns are
+  `schema-mismatch`.
+- A drift batch without the record id still runs, with a warning that now
+  says labels cannot be joined to it (it used to say "not needed").
+
+**Why this design**
+
+- *Problem:* labels arrive days after predictions; metrics need the two
+  matched row by row, and a metric on a small matched subset is misleading
+  unless the subset's size is shown (design §6).
+- *Strict join:* exact-text ids (no numeric normalisation: `007` is not `7`)
+  and duplicates rejected, because a wrong or ambiguous match silently
+  corrupts every metric computed from it. Every kind of gap is counted, so a
+  low join rate can be explained, not just observed.
+- *In the stateless engine:* the join needs the target's type from the
+  profile, and 3.3's metrics will run on the joined rows in the same request.
+- *Counts, not ids, in errors:* the engine never echoes request contents, and
+  record ids can be personal data.
+
+**Trade-offs and failure cases**
+
+- Ids that differ only in formatting (`7` vs `7.0`, case) do not match.
+- The whole batch and the labels are held in memory, like drift.
+- `/v1/performance` returns only the join until 3.3 adds metrics.
+
+**Files changed**
+
+- `analytics/src/driftwatch_analytics/performance/` (new): `join.py`,
+  `__init__.py`; `api/performance.py` (new), `main.py`
+- `analytics/src/driftwatch_analytics/schema/`: `types.py`, `inference.py`,
+  `validation.py`; `api/profile.py`
+- Tests: `tests/performance/test_join.py` (17), `tests/test_performance_api.py` (8)
+- Docs: `analytics/README.md`, `ML_MONITORING_DESIGN.md` §6,
+  `ARCHITECTURE.md`, `DEVELOPMENT_ROADMAP.md`, `CHANGELOG.md`, this log
+
+**Tests executed**
+
+- `pytest`: 379 passed; `ruff format --check`, `ruff check`, `mypy` (strict)
+  clean.
+
+**Commit hash**
+
+- To be recorded in the next entry (see `git log`).
+
+**Remaining work**
+
+- 3.2b: `recordIdColumn` on models (V5 migration), sent when profiling;
+  `POST /api/v1/runs/{runId}/labels` storing the labels and the join report.
+- Push when approved. License decision (open).
+
+---
+
 ## 2026-11-27 — Milestone 3.1b: model columns sent to the engine (backend)
 
 **Feature implemented**
@@ -58,7 +123,7 @@ following session's commit (or read with `git log`).
 
 **Commit hash**
 
-- To be recorded in the next entry (see `git log`).
+- `da10469`
 
 **Remaining work**
 

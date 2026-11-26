@@ -79,3 +79,7 @@ first release.
 - `backend`: reference registration sends the model's task type and
   prediction/target columns to the engine (clients cannot override them in
   `options`), and the reference's columns show their `role`.
+- `analytics`: `record_id_column` option and `POST /v1/performance`, which
+  joins late ground-truth labels to a batch by record id and reports the join
+  (`join_rate` and counts of every kind of gap); duplicate ids are rejected
+  (`duplicate-record-ids`) without echoing them.

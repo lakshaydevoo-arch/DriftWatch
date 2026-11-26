@@ -23,6 +23,8 @@ class ExclusionReason(StrEnum):
     # Ground-truth labels usually arrive later than inputs, so the target is
     # not part of a batch's drift check (it is used for performance, §6).
     TARGET_COLUMN = "target_column"
+    # Joins labels to predictions (§6); never a drift signal.
+    RECORD_ID = "record_id"
 
 
 class TypeSource(StrEnum):
@@ -38,6 +40,7 @@ class ColumnRole(StrEnum):
     FEATURE = "feature"
     PREDICTION = "prediction"
     TARGET = "target"
+    RECORD_ID = "record_id"
 
 
 class TaskType(StrEnum):

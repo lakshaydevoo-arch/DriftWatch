@@ -133,7 +133,12 @@ def validate_batch(
             issues.append(
                 ValidationIssue(
                     IssueCode.MISSING_EXCLUDED_COLUMN,
-                    f"excluded column {schema_column.name!r} is missing (not needed)",
+                    (
+                        f"record id column {schema_column.name!r} is missing; labels "
+                        "cannot be joined to this batch"
+                        if schema_column.role is ColumnRole.RECORD_ID
+                        else f"excluded column {schema_column.name!r} is missing (not needed)"
+                    ),
                     schema_column.name,
                 )
             )

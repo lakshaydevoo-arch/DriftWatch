@@ -272,6 +272,15 @@ Labels are joined to predictions by a client-supplied `record_id`. Metrics are
 computed only on joined rows, and the **join rate** is always reported, since
 metrics on 5% of the batch are not comparable to metrics on 100%.
 
+Join rules (implemented in 3.2a): the model names its record id column; ids
+are compared as exact text after trimming whitespace; every non-missing id
+must be unique in the batch and in the labels (a duplicate makes the join
+ambiguous, so it is rejected rather than resolved by guessing); a batch row is
+*joined* when its label row exists and its label is present and parses as the
+target's type. `join_rate = joined / batch rows`. Rows with a missing id,
+matched rows with a missing or invalid label, and labels for unknown ids are
+each counted, so a low join rate can be explained.
+
 | Task | Metrics (scikit-learn) |
 |------|------------------------|
 | Binary classification | accuracy, precision, recall, F1, ROC AUC (if probabilities are available) |

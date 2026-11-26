@@ -166,6 +166,7 @@ Internal engine API (`analytics`, not exposed publicly):
 | `GET`  | `/health` | Liveness + engine version |
 | `POST` | `/v1/profile` | Infer schema and build a reference profile |
 | `POST` | `/v1/drift` | Compare a current batch to a profile |
+| `POST` | `/v1/performance` | Join late labels to a batch by record id (join report; metrics with 3.3) |
 
 The engine endpoints are implemented; their full request/response and
 error contract is in [analytics/README.md](analytics/README.md#api). The

@@ -1,7 +1,7 @@
 # analytics — statistical engine
 
 **Status:** Milestone 1 complete; Milestone 3 in progress (3.1a: prediction
-and target columns). Milestone 1 implemented: service scaffold with
+and target columns; 3.2a: joining labels by record id). Milestone 1 implemented: service scaffold with
 `/health` (1.1), the seeded synthetic data generator (1.2) and CSV loading
 with schema inference and batch validation (1.3), reference profiles
 (1.4), numeric drift with PSI and KS (1.5), and categorical drift with
@@ -274,6 +274,7 @@ Interactive docs: `/docs`; machine-readable schema: `/openapi.json`.
 | `GET` | `/health` | | `200 {"status": "ok", "engine_version": "..."}` |
 | `POST` | `/v1/profile` | `file`: reference CSV; `options` (optional): JSON `ProfileOptions` | `200 {"profile": ReferenceProfile, "issues": [...]}` |
 | `POST` | `/v1/drift` | `profile`: profile JSON **file**; `current`: current CSV; `config` (optional): JSON `DriftConfig` | `200 DriftResponse` |
+| `POST` | `/v1/performance` | `profile`: profile JSON **file**; `current`: the batch CSV; `labels`: CSV with the record id and target columns | `200 {"engine_version", "profile_engine_version", "join": JoinReport}` |
 
 The profile is sent as a file part, not a text field, because Starlette
 limits ordinary form fields to 1 MB and a profile can be larger (about
@@ -297,6 +298,7 @@ curl -F file=@reference.csv \
  "task_type": "binary_classification|multiclass_classification|regression",
  "prediction_column": "<column>",
  "target_column": "<column>",
+ "record_id_column": "<column>",
  "profile": {"n_bins": 10, "sample_size": 10000, "max_categories": 100, "seed": 42}}
 ```
 
@@ -312,12 +314,31 @@ Every schema column has a `role`: `feature`, `prediction` or `target`.
 - `target_column` keeps its inferred type but is excluded from drift
   (`target_column`), because labels usually arrive later. A current batch
   without it is accepted with no warning.
+- `record_id_column` keeps its inferred type but is excluded (`record_id`);
+  it is what `/v1/performance` joins labels on. A current batch without it
+  still gets drift results, with a warning that labels cannot be joined.
 - Contradictions are `invalid-options`: a role naming a missing column,
-  `prediction_column` without `task_type`, the same column for both roles, or
+  `prediction_column` without `task_type`, the same column for two roles, or
   a role column that is also in `exclude`.
 
 Profiles stored before roles existed have no `role` field; it defaults to
 `feature`, so they keep working without a format change.
+
+### `JoinReport` (`/v1/performance`)
+
+Labels are joined to the batch by record id. Ids are compared as exact text
+after trimming whitespace (`007` ≠ `7`), must be unique on each side, and a
+missing id joins nothing. Counts:
+
+| Field | Meaning |
+|-------|---------|
+| `n_current_rows`, `n_label_rows` | Rows in the batch and in the labels |
+| `n_current_without_id`, `n_labels_without_id` | Rows whose id is missing |
+| `n_matched` | Batch rows whose id has a label row |
+| `n_missing_labels`, `n_invalid_labels` | Matched rows whose label is missing or does not parse as the target's type |
+| `n_joined` | Matched rows with a valid label (what metrics will use, task 3.3) |
+| `n_unmatched_labels` | Label rows whose id is not in the batch (ignored) |
+| `join_rate` | `n_joined / n_current_rows`; `null` for an empty batch |
 
 ### `DriftResponse`
 
@@ -346,7 +367,9 @@ Every error is RFC 9457 `application/problem+json`:
 | 422 | `unprofilable-dataset` | A monitored column has no valid values (usually a wrong override) |
 | 422 | `invalid-profile` | Profile JSON is malformed, from another format version, or fails consistency checks |
 | 422 | `invalid-config` | Bad `config` JSON or out-of-range values |
-| 422 | `schema-mismatch` | Current batch lacks monitored columns (`errors` lists them) |
+| 422 | `schema-mismatch` | Current batch lacks monitored columns, or (performance) the batch lacks the record id or the labels lack the record id or target (`errors` lists them) |
+| 422 | `labels-not-configured` | Performance requested with a profile that has no `target_column` or `record_id_column` |
+| 422 | `duplicate-record-ids` | A record id repeats in the batch or the labels (`errors` gives counts, never the ids) |
 
 `errors` is capped at 20 entries, and request inputs are never echoed back.
 

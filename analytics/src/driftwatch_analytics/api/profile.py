@@ -36,6 +36,9 @@ class ProfileOptions(BaseModel):
     target_column: str | None = Field(
         default=None, description="Ground-truth label column; kept, not monitored for drift"
     )
+    record_id_column: str | None = Field(
+        default=None, description="Joins late labels to predictions; kept, not monitored"
+    )
     profile: ProfileConfig = ProfileConfig()
 
 
@@ -81,6 +84,7 @@ def create_profile(
             task_type=parsed_options.task_type,
             prediction_column=parsed_options.prediction_column,
             target_column=parsed_options.target_column,
+            record_id_column=parsed_options.record_id_column,
         )
     except ValueError as exc:
         raise ApiError(422, "invalid-options", "Invalid options", str(exc)) from exc

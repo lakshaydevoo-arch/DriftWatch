@@ -24,6 +24,8 @@ Column roles (ML_MONITORING_DESIGN.md section 5):
   inferred label type (CATEGORICAL, or BOOLEAN for true/false labels).
 - The *target* column keeps its inferred type but is excluded from drift
   (TARGET_COLUMN): labels usually arrive later than inputs.
+- The *record id* column keeps its inferred type but is excluded
+  (RECORD_ID): it only joins late labels to predictions.
 """
 
 from collections.abc import Collection, Mapping
@@ -79,6 +81,7 @@ def infer_schema(
     task_type: TaskType | None = None,
     prediction_column: str | None = None,
     target_column: str | None = None,
+    record_id_column: str | None = None,
     config: InferenceConfig | None = None,
 ) -> DatasetSchema:
     """Infer the schema of a text DataFrame (as returned by ``read_csv_text``).
@@ -90,6 +93,7 @@ def infer_schema(
         task_type: the model's task; required with ``prediction_column``.
         prediction_column: the model's output, monitored as prediction drift.
         target_column: the ground-truth label, kept but not monitored.
+        record_id_column: joins labels to predictions, kept but not monitored.
 
     Raises:
         ValueError: if the frame has no rows, or the arguments name columns
@@ -100,13 +104,13 @@ def infer_schema(
     if len(data) == 0:
         raise ValueError("cannot infer a schema from a dataset with no rows")
     named = set(overrides) | set(exclude)
-    named |= {c for c in (prediction_column, target_column) if c is not None}
+    named |= {c for c in (prediction_column, target_column, record_id_column) if c is not None}
     unknown = sorted(named - set(data.columns))
     if unknown:
         raise ValueError(f"options refer to columns not in the dataset: {unknown}")
     if LogicalType.UNKNOWN in overrides.values():
         raise ValueError("UNKNOWN cannot be used as an override; use exclude instead")
-    _check_roles(exclude, task_type, prediction_column, target_column)
+    _check_roles(exclude, task_type, prediction_column, target_column, record_id_column)
 
     columns = []
     for name in data.columns:
@@ -125,6 +129,8 @@ def infer_schema(
             column = _infer_column(name, data[name], config)
         if name == target_column:
             column = replace(column, excluded=ExclusionReason.TARGET_COLUMN, role=ColumnRole.TARGET)
+        elif name == record_id_column:
+            column = replace(column, excluded=ExclusionReason.RECORD_ID, role=ColumnRole.RECORD_ID)
         elif name in exclude:
             column = replace(column, excluded=ExclusionReason.USER_EXCLUDED)
         columns.append(column)
@@ -136,16 +142,20 @@ def _check_roles(
     task_type: TaskType | None,
     prediction_column: str | None,
     target_column: str | None,
+    record_id_column: str | None,
 ) -> None:
     if prediction_column is not None and task_type is None:
         raise ValueError("prediction_column requires task_type")
-    if prediction_column is not None and prediction_column == target_column:
-        raise ValueError("prediction_column and target_column must be different columns")
-    for role, column in (
-        ("prediction_column", prediction_column),
-        ("target_column", target_column),
-    ):
-        if column is not None and column in exclude:
+    roles = {
+        "prediction_column": prediction_column,
+        "target_column": target_column,
+        "record_id_column": record_id_column,
+    }
+    given = {role: column for role, column in roles.items() if column is not None}
+    if len(set(given.values())) != len(given):
+        raise ValueError(f"{', '.join(given)} must be different columns")
+    for role, column in given.items():
+        if column in exclude:
             raise ValueError(f"{role} {column!r} cannot also be excluded")
 
 

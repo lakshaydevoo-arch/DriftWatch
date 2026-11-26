@@ -8,7 +8,7 @@ Run locally with::
 from fastapi import FastAPI
 
 from driftwatch_analytics._version import ENGINE_VERSION
-from driftwatch_analytics.api import drift, health, profile
+from driftwatch_analytics.api import drift, health, performance, profile
 from driftwatch_analytics.api.errors import install_error_handlers
 from driftwatch_analytics.api.uploads import body_size_limiter
 from driftwatch_analytics.settings import Settings
@@ -33,6 +33,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(health.router)
     app.include_router(profile.router)
     app.include_router(drift.router)
+    app.include_router(performance.router)
     return app
 
 

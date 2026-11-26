@@ -68,7 +68,10 @@ Depends on: Milestone 1 API contracts (1.8).
   - ✅ 3.1a Engine: column roles, prediction type by task (auto-detected
     probabilities vs. labels; approved by maintainer), `prediction_drift`
   - ✅ 3.1b Backend: pass each model's task and columns to the engine
-- ⏳ 3.2 Ground-truth upload and join by `record_id`, join-rate reporting
+- 🔄 3.2 Ground-truth upload and join by `record_id`, join-rate reporting
+  - ✅ 3.2a Engine: record id role, label join with join report,
+    `POST /v1/performance`
+  - ⏳ 3.2b Backend: record id column on models, label upload per run
 - ⏳ 3.3 Classification and regression metrics with degradation rules
 - ⏳ 3.4 Reference performance baseline
 
