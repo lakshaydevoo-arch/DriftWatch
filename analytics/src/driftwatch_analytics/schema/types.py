@@ -20,11 +20,30 @@ class ExclusionReason(StrEnum):
     DATETIME_NOT_SUPPORTED = "datetime_not_supported"
     LIKELY_IDENTIFIER = "likely_identifier"
     USER_EXCLUDED = "user_excluded"
+    # Ground-truth labels usually arrive later than inputs, so the target is
+    # not part of a batch's drift check (it is used for performance, §6).
+    TARGET_COLUMN = "target_column"
 
 
 class TypeSource(StrEnum):
     INFERRED = "inferred"
     OVERRIDE = "override"
+    # Derived from the model's task type (prediction column, see inference.py).
+    TASK_TYPE = "task_type"
+
+
+class ColumnRole(StrEnum):
+    """What a column is to the monitored model."""
+
+    FEATURE = "feature"
+    PREDICTION = "prediction"
+    TARGET = "target"
+
+
+class TaskType(StrEnum):
+    BINARY_CLASSIFICATION = "binary_classification"
+    MULTICLASS_CLASSIFICATION = "multiclass_classification"
+    REGRESSION = "regression"
 
 
 @dataclass(frozen=True)
@@ -36,6 +55,8 @@ class ColumnSchema:
     # Categorical column whose values are integers (e.g. a 1-5 rating).
     # Values are normalised so that "3" and "3.0" are the same category.
     integer_coded: bool = False
+    # Defaults to FEATURE, so profiles stored before roles existed still load.
+    role: ColumnRole = ColumnRole.FEATURE
 
     @property
     def monitored(self) -> bool:
@@ -54,6 +75,9 @@ class DatasetSchema:
     @property
     def names(self) -> tuple[str, ...]:
         return tuple(column.name for column in self.columns)
+
+    def with_role(self, role: ColumnRole) -> tuple[ColumnSchema, ...]:
+        return tuple(column for column in self.columns if column.role is role)
 
     def column(self, name: str) -> ColumnSchema:
         for column in self.columns:

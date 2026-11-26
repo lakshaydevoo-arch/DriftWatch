@@ -200,6 +200,7 @@ def test_drift_on_unchanged_data(module_client: TestClient, profile_json: bytes)
         "n_with_quality_flags": 0,
         "drift_share": 0.0,
         "dataset_drift": False,
+        "prediction_drift": None,
     }
     assert [f["name"] for f in body["features"]] == [
         "age",

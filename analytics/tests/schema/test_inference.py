@@ -141,9 +141,9 @@ def test_rejects_dataset_without_rows() -> None:
 
 
 def test_rejects_overrides_for_unknown_columns() -> None:
-    with pytest.raises(ValueError, match="unknown columns: \\['nope'\\]"):
+    with pytest.raises(ValueError, match="not in the dataset: \\['nope'\\]"):
         infer_schema(_frame(a=["1"]), overrides={"nope": LogicalType.NUMERIC})
-    with pytest.raises(ValueError, match="unknown columns: \\['nope'\\]"):
+    with pytest.raises(ValueError, match="not in the dataset: \\['nope'\\]"):
         infer_schema(_frame(a=["1"]), exclude=["nope"])
 
 

@@ -1,6 +1,7 @@
 # analytics — statistical engine
 
-**Status:** Milestone 1 in progress. Implemented: service scaffold with
+**Status:** Milestone 1 complete; Milestone 3 in progress (3.1a: prediction
+and target columns). Milestone 1 implemented: service scaffold with
 `/health` (1.1), the seeded synthetic data generator (1.2) and CSV loading
 with schema inference and batch validation (1.3), reference profiles
 (1.4), numeric drift with PSI and KS (1.5), and categorical drift with
@@ -293,8 +294,30 @@ curl -F file=@reference.csv \
 ```json
 {"overrides": {"<column>": "numeric|categorical|boolean|datetime"},
  "exclude": ["<column>"],
+ "task_type": "binary_classification|multiclass_classification|regression",
+ "prediction_column": "<column>",
+ "target_column": "<column>",
  "profile": {"n_bins": 10, "sample_size": 10000, "max_categories": 100, "seed": 42}}
 ```
+
+**Column roles** ([design §5](../ML_MONITORING_DESIGN.md#5-prediction-drift)).
+Every schema column has a `role`: `feature`, `prediction` or `target`.
+
+- `prediction_column` (needs `task_type`) is always monitored, never excluded
+  by a heuristic. Its type, unless overridden: regression → `numeric`;
+  classification → `numeric` if it holds probabilities (every value a number
+  in [0, 1], at least one not whole), otherwise the label type (`categorical`,
+  or `boolean` for `0/1`, `yes/no`, `true/false`). Its `source` is
+  `task_type`. A current batch without it is rejected (`schema-mismatch`).
+- `target_column` keeps its inferred type but is excluded from drift
+  (`target_column`), because labels usually arrive later. A current batch
+  without it is accepted with no warning.
+- Contradictions are `invalid-options`: a role naming a missing column,
+  `prediction_column` without `task_type`, the same column for both roles, or
+  a role column that is also in `exclude`.
+
+Profiles stored before roles existed have no `role` field; it defaults to
+`feature`, so they keep working without a format change.
 
 ### `DriftResponse`
 
@@ -303,8 +326,8 @@ curl -F file=@reference.csv \
 | `engine_version`, `profile_engine_version` | Engine that ran the comparison / built the profile (a mismatch adds a warning) |
 | `config` | The full `DriftConfig` used, defaults filled in, so the run can be repeated |
 | `n_rows` | Rows in the current batch |
-| `summary` | `n_features`, `n_evaluated`, `n_insufficient_data`, `n_drifted`, `n_with_quality_flags`, `drift_share` (of evaluated features; `null` if none), `dataset_drift` (`drift_share >= dataset_drift_share`, default 0.5) |
-| `features` | One `FeatureDriftResult` per monitored feature, in schema order |
+| `summary` | Over **input** features only: `n_features`, `n_evaluated`, `n_insufficient_data`, `n_drifted`, `n_with_quality_flags`, `drift_share` (of evaluated features; `null` if none), `dataset_drift` (`drift_share >= dataset_drift_share`, default 0.5). Plus `prediction_drift`: the prediction column's verdict, `null` if there is none or it had too little data |
+| `features` | One `FeatureDriftResult` per monitored column (inputs and the prediction, each with its `role`), in schema order |
 | `issues` | Validation warnings (extra columns, schema violations, empty batch), each with `code`, `severity`, `message`, `column` |
 | `warnings` | Run-level warnings, e.g. engine version mismatch |
 

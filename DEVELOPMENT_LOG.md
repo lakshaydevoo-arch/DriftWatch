@@ -7,6 +7,87 @@ following session's commit (or read with `git log`).
 
 ---
 
+## 2026-11-27 — Milestone 3.1a: prediction and target columns (engine)
+
+**Feature implemented**
+
+- Schema columns have a `role`: `feature`, `prediction` or `target`
+  (`ColumnRole`), defaulting to `feature`, so profiles stored before this
+  change load unchanged (no format-version bump; a test strips `role` from a
+  stored profile and runs drift on it).
+- `ProfileOptions` gains `task_type`, `prediction_column`, `target_column`.
+- Prediction column: always monitored (exempt from the identifier and
+  datetime heuristics). Type, unless overridden: regression → numeric;
+  classification → numeric when the values look like probabilities (all in
+  [0, 1], at least one not whole), otherwise labels (categorical, or boolean
+  for `0/1`, `yes/no`, `true/false`). `source` is the new `task_type`.
+- Target column: inferred type kept, excluded from drift
+  (`ExclusionReason.TARGET_COLUMN`); a current batch without it gets no
+  warning (labels arrive later).
+- `/v1/drift`: each result carries its `role`; summary counts and
+  `dataset_drift` cover input features only; new `summary.prediction_drift`
+  (`null` without a prediction column or with too little data).
+- Contradictory options (unknown column, prediction without task type, same
+  column for both roles, role column also excluded) → `invalid-options`.
+
+**Why this design**
+
+- *Problem:* the prediction column was just another feature (an integer
+  class label with more than 10 classes was even inferred as numeric), its
+  drift was mixed into `dataset_drift`, and a reference containing the label
+  column made every label-less production batch fail with `schema-mismatch`.
+- *Auto-detection* was chosen by the maintainer over an explicit
+  `predictionType` on the model: no API or migration change, and the existing
+  `overrides` already cover the cases the rule gets wrong.
+- Prediction drift is reported apart from input drift because they mean
+  different things (design §1, §5) and DriftWatch does not merge signals.
+
+**Trade-offs and failure cases**
+
+- Scores that are only ever exactly 0.0/1.0, or probabilities rounded to
+  whole numbers, are treated as labels; an override fixes it.
+- `summary.n_features` no longer counts the prediction column. Clients that
+  did not use roles see no change.
+- The backend does not send roles yet (3.1b), so nothing changes for
+  registered models until then.
+
+**Files changed**
+
+- `analytics/src/driftwatch_analytics/schema/`: `types.py` (`ColumnRole`,
+  `TaskType`, `TypeSource.TASK_TYPE`, `ExclusionReason.TARGET_COLUMN`),
+  `inference.py` (roles, prediction rule), `validation.py` (silent missing
+  target), `__init__.py`
+- `analytics/src/driftwatch_analytics/drift/evaluation.py` (`role` on
+  results), `api/drift.py` (summary), `api/profile.py` (options)
+- Tests: `tests/schema/test_roles.py` (24), `tests/test_prediction_api.py`
+  (13); `tests/test_api.py`, `tests/schema/test_inference.py` (expectations
+  for the new summary field and reworded error message)
+- Docs: `analytics/README.md`, `ML_MONITORING_DESIGN.md` §5 and §7,
+  `DEVELOPMENT_ROADMAP.md`, `CHANGELOG.md`, this log
+
+**Tests executed**
+
+- `pytest`: 354 passed; `ruff format --check`, `ruff check`, `mypy` (strict)
+  clean.
+- Backend engine-contract tests against the changed engine: 16 passed (the
+  backend is unaffected until it sends roles).
+- Three test expectations were wrong and corrected, not the code: `0/1` and
+  `yes/no` are boolean tokens in this engine, so such labels are `boolean`
+  (scored with the categorical methods, as intended); and a test helper
+  wrote `""` into a float column, which pandas refuses (now `NaN`).
+
+**Commit hash**
+
+- To be recorded in the next entry (see `git log`).
+
+**Remaining work**
+
+- 3.1b: backend sends the model's task type and columns when profiling;
+  reference response shows roles; options that set them directly rejected.
+- Push when approved. License decision (open).
+
+---
+
 ## 2026-11-27 — Milestone 2.8: run results API
 
 **Feature implemented**
@@ -74,7 +155,7 @@ following session's commit (or read with `git log`).
 
 **Commit hash**
 
-- To be recorded in the next entry (see `git log`).
+- `498dc9e`
 
 **Remaining work**
 

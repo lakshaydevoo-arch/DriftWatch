@@ -28,7 +28,7 @@ from driftwatch_analytics.profiling.models import (
     NumericProfile,
     ReferenceProfile,
 )
-from driftwatch_analytics.schema.types import LogicalType
+from driftwatch_analytics.schema.types import ColumnRole, LogicalType
 from driftwatch_analytics.schema.validation import BatchValidationReport
 
 
@@ -68,6 +68,8 @@ DriftResult = Annotated[NumericDriftResult | CategoricalDriftResult, Field(discr
 class FeatureDriftResult(_Frozen):
     name: str
     logical_type: LogicalType
+    # FEATURE (an input) or PREDICTION (the model's output: prediction drift).
+    role: ColumnRole = ColumnRole.FEATURE
     status: FeatureStatus
     drift_detected: bool
     flags: tuple[QualityFlag, ...]
@@ -101,7 +103,7 @@ def evaluate_batch(
             "the profile's schema"
         )
     return tuple(
-        _evaluate_feature(column.name, column.logical_type, profile, report, config)
+        _evaluate_feature(column.name, column.logical_type, column.role, profile, report, config)
         for column in profile.dataset_schema.columns
         if column.monitored
     )
@@ -110,6 +112,7 @@ def evaluate_batch(
 def _evaluate_feature(
     name: str,
     logical_type: LogicalType,
+    role: ColumnRole,
     profile: ReferenceProfile,
     report: BatchValidationReport,
     config: DriftConfig,
@@ -151,6 +154,7 @@ def _evaluate_feature(
     return FeatureDriftResult(
         name=name,
         logical_type=logical_type,
+        role=role,
         status=status,
         drift_detected=drift is not None and drift.drift_detected,
         flags=tuple(flags),

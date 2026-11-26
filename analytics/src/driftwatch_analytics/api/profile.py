@@ -14,7 +14,7 @@ from driftwatch_analytics.profiling import (
     ReferenceProfile,
     build_reference_profile,
 )
-from driftwatch_analytics.schema import LogicalType, infer_schema
+from driftwatch_analytics.schema import LogicalType, TaskType, infer_schema
 from driftwatch_analytics.settings import Settings
 
 router = APIRouter(tags=["profiling"])
@@ -27,6 +27,15 @@ class ProfileOptions(BaseModel):
         default_factory=dict, description="Force a logical type for named columns"
     )
     exclude: list[str] = Field(default_factory=list, description="Columns not to monitor")
+    task_type: TaskType | None = Field(
+        default=None, description="The model's task; required with prediction_column"
+    )
+    prediction_column: str | None = Field(
+        default=None, description="The model's output column, monitored as prediction drift"
+    )
+    target_column: str | None = Field(
+        default=None, description="Ground-truth label column; kept, not monitored for drift"
+    )
     profile: ProfileConfig = ProfileConfig()
 
 
@@ -66,7 +75,12 @@ def create_profile(
         raise ApiError(422, "empty-dataset", "Empty dataset", "the reference CSV has no data rows")
     try:
         schema = infer_schema(
-            text, overrides=parsed_options.overrides, exclude=parsed_options.exclude
+            text,
+            overrides=parsed_options.overrides,
+            exclude=parsed_options.exclude,
+            task_type=parsed_options.task_type,
+            prediction_column=parsed_options.prediction_column,
+            target_column=parsed_options.target_column,
         )
     except ValueError as exc:
         raise ApiError(422, "invalid-options", "Invalid options", str(exc)) from exc

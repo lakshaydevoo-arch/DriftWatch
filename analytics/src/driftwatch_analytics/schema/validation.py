@@ -12,7 +12,7 @@ from enum import StrEnum
 import pandas as pd
 
 from driftwatch_analytics.schema.parsing import ParsedColumn, parse_column
-from driftwatch_analytics.schema.types import DatasetSchema, LogicalType
+from driftwatch_analytics.schema.types import ColumnRole, DatasetSchema, LogicalType
 
 
 class Severity(StrEnum):
@@ -117,6 +117,9 @@ def validate_batch(
 
     for schema_column in schema.columns:
         if schema_column.name in present:
+            continue
+        if schema_column.role is ColumnRole.TARGET:
+            # Expected: labels usually arrive after the inputs (§6).
             continue
         if schema_column.monitored:
             issues.append(

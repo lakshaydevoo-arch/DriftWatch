@@ -70,3 +70,9 @@ first release.
   per-feature results, optional `drifted` filter; `409 run-not-succeeded`
   before a run succeeds) and `GET /api/v1/models/{id}/runs` (paginated run
   history, newest first).
+- `analytics`: prediction and target columns (`task_type`,
+  `prediction_column`, `target_column` in `ProfileOptions`). The prediction
+  is always monitored, typed by task (probabilities numeric, class labels
+  categorical) and reported as `summary.prediction_drift`, separately from
+  input drift; the target is kept but not drift-tested, and may be absent
+  from current batches. Existing profiles keep working.

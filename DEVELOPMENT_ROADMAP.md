@@ -62,9 +62,12 @@ Depends on: Milestone 1 API contracts (1.8).
 - ✅ 2.8 Run results API (per-feature results, run history); end-to-end
   test with a real engine
 
-## Milestone 3 — Prediction drift and performance ⏳
+## Milestone 3 — Prediction drift and performance 🔄
 
-- ⏳ 3.1 Prediction column handling (numeric vs. class labels)
+- 🔄 3.1 Prediction column handling (numeric vs. class labels)
+  - ✅ 3.1a Engine: column roles, prediction type by task (auto-detected
+    probabilities vs. labels; approved by maintainer), `prediction_drift`
+  - ⏳ 3.1b Backend: pass each model's task and columns to the engine
 - ⏳ 3.2 Ground-truth upload and join by `record_id`, join-rate reporting
 - ⏳ 3.3 Classification and regression metrics with degradation rules
 - ⏳ 3.4 Reference performance baseline

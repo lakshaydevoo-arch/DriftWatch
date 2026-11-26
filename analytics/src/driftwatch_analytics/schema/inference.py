@@ -14,10 +14,20 @@ this order:
    LIKELY_IDENTIFIER when almost every value is distinct
 
 These are heuristics. Users can correct them with ``overrides`` and ``exclude``.
+
+Column roles (ML_MONITORING_DESIGN.md section 5):
+
+- The *prediction* column is always monitored (never excluded by a
+  heuristic). Unless overridden, its type follows the task: regression ->
+  NUMERIC; classification -> NUMERIC if it holds probabilities (every value
+  numeric in [0, 1], at least one not a whole number), otherwise the
+  inferred label type (CATEGORICAL, or BOOLEAN for true/false labels).
+- The *target* column keeps its inferred type but is excluded from drift
+  (TARGET_COLUMN): labels usually arrive later than inputs.
 """
 
 from collections.abc import Collection, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import pandas as pd
 
@@ -30,10 +40,12 @@ from driftwatch_analytics.schema.parsing import (
     parse_numeric,
 )
 from driftwatch_analytics.schema.types import (
+    ColumnRole,
     ColumnSchema,
     DatasetSchema,
     ExclusionReason,
     LogicalType,
+    TaskType,
     TypeSource,
 )
 
@@ -64,6 +76,9 @@ def infer_schema(
     *,
     overrides: Mapping[str, LogicalType] | None = None,
     exclude: Collection[str] = (),
+    task_type: TaskType | None = None,
+    prediction_column: str | None = None,
+    target_column: str | None = None,
     config: InferenceConfig | None = None,
 ) -> DatasetSchema:
     """Infer the schema of a text DataFrame (as returned by ``read_csv_text``).
@@ -72,23 +87,33 @@ def infer_schema(
         overrides: force a logical type for named columns. An overridden
             column is monitored unless also listed in ``exclude``.
         exclude: columns kept in the schema but not monitored.
+        task_type: the model's task; required with ``prediction_column``.
+        prediction_column: the model's output, monitored as prediction drift.
+        target_column: the ground-truth label, kept but not monitored.
 
     Raises:
-        ValueError: if the frame has no rows, or ``overrides``/``exclude``
-            name columns that do not exist.
+        ValueError: if the frame has no rows, or the arguments name columns
+            that do not exist or contradict each other.
     """
     config = config or InferenceConfig()
     overrides = dict(overrides or {})
     if len(data) == 0:
         raise ValueError("cannot infer a schema from a dataset with no rows")
-    unknown = sorted((set(overrides) | set(exclude)) - set(data.columns))
+    named = set(overrides) | set(exclude)
+    named |= {c for c in (prediction_column, target_column) if c is not None}
+    unknown = sorted(named - set(data.columns))
     if unknown:
-        raise ValueError(f"overrides/exclude refer to unknown columns: {unknown}")
+        raise ValueError(f"options refer to columns not in the dataset: {unknown}")
     if LogicalType.UNKNOWN in overrides.values():
         raise ValueError("UNKNOWN cannot be used as an override; use exclude instead")
+    _check_roles(exclude, task_type, prediction_column, target_column)
 
     columns = []
     for name in data.columns:
+        if name == prediction_column:
+            assert task_type is not None  # checked by _check_roles
+            columns.append(_prediction(name, data[name], task_type, overrides.get(name), config))
+            continue
         if name in overrides:
             column = ColumnSchema(
                 name,
@@ -98,16 +123,77 @@ def infer_schema(
             )
         else:
             column = _infer_column(name, data[name], config)
-        if name in exclude:
-            column = ColumnSchema(
-                column.name,
-                column.logical_type,
-                column.source,
-                ExclusionReason.USER_EXCLUDED,
-                column.integer_coded,
-            )
+        if name == target_column:
+            column = replace(column, excluded=ExclusionReason.TARGET_COLUMN, role=ColumnRole.TARGET)
+        elif name in exclude:
+            column = replace(column, excluded=ExclusionReason.USER_EXCLUDED)
         columns.append(column)
     return DatasetSchema(tuple(columns))
+
+
+def _check_roles(
+    exclude: Collection[str],
+    task_type: TaskType | None,
+    prediction_column: str | None,
+    target_column: str | None,
+) -> None:
+    if prediction_column is not None and task_type is None:
+        raise ValueError("prediction_column requires task_type")
+    if prediction_column is not None and prediction_column == target_column:
+        raise ValueError("prediction_column and target_column must be different columns")
+    for role, column in (
+        ("prediction_column", prediction_column),
+        ("target_column", target_column),
+    ):
+        if column is not None and column in exclude:
+            raise ValueError(f"{role} {column!r} cannot also be excluded")
+
+
+def _prediction(
+    name: str,
+    text: pd.Series,
+    task_type: TaskType,
+    override: LogicalType | None,
+    config: InferenceConfig,
+) -> ColumnSchema:
+    """The prediction column: always monitored, typed by override or by task."""
+    role = ColumnRole.PREDICTION
+    if override is not None:
+        return ColumnSchema(
+            name,
+            override,
+            TypeSource.OVERRIDE,
+            integer_coded=_is_integer_coded(text, override),
+            role=role,
+        )
+    if task_type is TaskType.REGRESSION or _looks_like_probabilities(text):
+        return ColumnSchema(name, LogicalType.NUMERIC, TypeSource.TASK_TYPE, role=role)
+    # Class labels. A boolean column (true/false labels) stays boolean;
+    # anything else, including numbers such as 0/1 or 1-12, is categorical.
+    inferred = _infer_column(name, text, config)
+    if inferred.logical_type is LogicalType.BOOLEAN:
+        return replace(inferred, source=TypeSource.TASK_TYPE, role=role)
+    return ColumnSchema(
+        name,
+        LogicalType.CATEGORICAL,
+        TypeSource.TASK_TYPE,
+        integer_coded=_is_integer_coded(text, LogicalType.CATEGORICAL),
+        role=role,
+    )
+
+
+def _looks_like_probabilities(text: pd.Series) -> bool:
+    """Every non-missing value numeric in [0, 1], and at least one not whole."""
+    stripped, missing = normalise(text)
+    values = stripped[~missing]
+    if values.empty:
+        return False
+    numbers = parse_numeric(values)
+    if numbers.isna().any():
+        return False
+    return bool(
+        (numbers >= 0).all() and (numbers <= 1).all() and not is_integer_valued(numbers).all()
+    )
 
 
 def _infer_column(name: str, text: pd.Series, config: InferenceConfig) -> ColumnSchema:

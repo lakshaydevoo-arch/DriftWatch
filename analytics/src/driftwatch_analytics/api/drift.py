@@ -16,21 +16,26 @@ from driftwatch_analytics.drift import (
     evaluate_batch,
 )
 from driftwatch_analytics.profiling import ReferenceProfile
-from driftwatch_analytics.schema import Severity, validate_batch
+from driftwatch_analytics.schema import ColumnRole, Severity, validate_batch
 from driftwatch_analytics.settings import Settings
 
 router = APIRouter(tags=["drift"])
 
 
 class DatasetSummary(BaseModel):
+    """Input-feature counts; the prediction column is reported separately."""
+
     n_features: int
     n_evaluated: int
     n_insufficient_data: int
     n_drifted: int
     n_with_quality_flags: int
-    # Share of *evaluated* features with drift; None if none could be evaluated.
+    # Share of *evaluated* input features with drift; None if none could be evaluated.
     drift_share: float | None = Field(default=None, ge=0, le=1)
     dataset_drift: bool | None = None
+    # Drift of the model's prediction column (ML_MONITORING_DESIGN.md section 5).
+    # None if the profile has no prediction column or it had too little data.
+    prediction_drift: bool | None = None
 
 
 class DriftResponse(BaseModel):
@@ -45,17 +50,24 @@ class DriftResponse(BaseModel):
 
 
 def summarise(results: tuple[FeatureDriftResult, ...], config: DriftConfig) -> DatasetSummary:
-    evaluated = [r for r in results if r.status is FeatureStatus.EVALUATED]
+    inputs = [r for r in results if r.role is ColumnRole.FEATURE]
+    evaluated = [r for r in inputs if r.status is FeatureStatus.EVALUATED]
     drifted = sum(r.drift_detected for r in evaluated)
     share = drifted / len(evaluated) if evaluated else None
+    predictions = [
+        r
+        for r in results
+        if r.role is ColumnRole.PREDICTION and r.status is FeatureStatus.EVALUATED
+    ]
     return DatasetSummary(
-        n_features=len(results),
+        n_features=len(inputs),
         n_evaluated=len(evaluated),
-        n_insufficient_data=len(results) - len(evaluated),
+        n_insufficient_data=len(inputs) - len(evaluated),
         n_drifted=drifted,
-        n_with_quality_flags=sum(bool(r.flags) for r in results),
+        n_with_quality_flags=sum(bool(r.flags) for r in inputs),
         drift_share=share,
         dataset_drift=None if share is None else share >= config.dataset_drift_share,
+        prediction_drift=predictions[0].drift_detected if predictions else None,
     )
 
 

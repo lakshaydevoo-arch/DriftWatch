@@ -245,8 +245,26 @@ The model's prediction column is profiled like any other feature:
 - Regression outputs and predicted probabilities → numeric methods (§3).
 - Predicted class labels → categorical methods (§4).
 
+Which one applies is decided from the model's task type (implemented in
+3.1a): regression predictions are numeric; a classifier's predictions are
+treated as **probabilities** if every value is a number in [0, 1] and at
+least one is not a whole number, and as **labels** otherwise (`0/1`, `yes/no`,
+`approve/deny`, `1`–`12`). An explicit type override always wins. Limits of
+the rule: a classifier whose scores are only ever exactly `0.0` or `1.0` is
+treated as emitting labels (categorical methods), and a probability column
+rounded to whole numbers cannot be told apart from labels; an override fixes
+either case.
+
 Prediction drift is reported separately from input drift because it is often
-the earliest label-free warning that model behaviour has changed.
+the earliest label-free warning that model behaviour has changed: the drift
+summary's counts and `dataset_drift` cover input features only, and
+`prediction_drift` carries the prediction's verdict. The prediction is
+always monitored (never excluded by the identifier heuristic), so a batch
+without it is rejected.
+
+The **target** (ground-truth label) column is kept in the schema but not
+drift-tested: labels usually arrive after the inputs (§6), so its absence
+from a current batch is expected and produces no warning.
 
 ## 6. Performance monitoring (requires labels)
 
@@ -275,7 +293,7 @@ Validation happens *before* any statistics are computed.
 | Situation | Behaviour |
 |-----------|-----------|
 | Monitored column missing from current batch | Batch rejected (`422`), listing missing columns |
-| Excluded column missing from current batch | Warning only (it is not needed) |
+| Excluded column missing from current batch | Warning only (it is not needed); no warning at all for the target column (§5) |
 | Extra column in current batch | Ignored, warning returned |
 | Numeric / boolean column contains unparseable values | Values counted as `invalid`; feature marked `SCHEMA_VIOLATION` if invalid / non-missing > 5%. The batch is not rejected: other features are still monitored |
 | Unseen category in a categorical column | Not a validation issue; it is a drift signal (§4) |
