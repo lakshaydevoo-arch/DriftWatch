@@ -51,6 +51,13 @@ driftwatch:
     connect-timeout: 2s
     # Profiling a 100 MB CSV is CPU-bound and can take minutes.
     read-timeout: 5m
+  runs:
+    # Monitoring runs sent to the engine at the same time. Each holds a whole
+    # batch in the engine's memory, so keep this small.
+    concurrency: 2
+    # Accepted runs that may wait for a worker. Beyond workers + queue, new
+    # runs are refused with 503 instead of piling up in memory.
+    queue-capacity: 20
 
 management:
   endpoints:

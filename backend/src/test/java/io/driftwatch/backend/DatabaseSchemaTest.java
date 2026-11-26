@@ -57,7 +57,8 @@ class DatabaseSchemaTest {
         .containsExactly(
             tuple("1", "create monitored model", true),
             tuple("2", "create dataset", true),
-            tuple("3", "create reference profile", true));
+            tuple("3", "create reference profile", true),
+            tuple("4", "create monitoring run", true));
   }
 
   @Test

@@ -105,10 +105,12 @@ boundary rather than an artificial one.
 2. `backend` validates it against the stored schema (missing columns, extra
    columns, type mismatches) and creates a `PENDING` run.
 3. A bounded background executor sends the profile + current batch to
-   `analytics` `/v1/drift`.
+   `analytics` `/v1/drift`. Schema validation happens in the engine, so a
+   mismatching batch becomes a `FAILED` run with `schema-mismatch`.
 4. Results are written in one transaction; the run becomes `SUCCEEDED`.
    Any engine error, timeout or validation failure produces `FAILED` with a
-   recorded reason — never a silently partial result.
+   recorded reason — never a silently partial result. Implemented (2.7a);
+   details in [backend/README.md](backend/README.md#monitoring-runs).
 
 ### 5.3 Performance monitoring (Milestone 3)
 
@@ -127,14 +129,16 @@ dataset(id, model_id FK, role, sha256, byte_size, original_filename,
 reference_profile(id, model_id FK, dataset_id UNIQUE, engine_version,
                   row_count, profile JSONB, issues JSONB, created_at)
                   -- V3; FK (dataset_id, model_id, 'REFERENCE') -> dataset
-monitoring_run(id, model_id FK, reference_dataset_id FK, current_dataset_id FK,
-               status, config JSONB, engine_version, error_message,
+monitoring_run(id, model_id FK, reference_profile_id FK, current_dataset_id FK
+               UNIQUE, status, requested_config JSONB, engine_version,
+               result JSONB, error_kind, error_message, error_details JSONB,
                created_at, started_at, finished_at)
-feature_drift_result(id, run_id FK, feature_name, feature_type, method,
-                     statistic, p_value, threshold, drift_detected,
-                     reference_count, current_count, missing_rate_ref,
-                     missing_rate_cur, warnings JSONB)
+               -- V4; check constraints tie each status to its fields
 ```
+
+The earlier sketch had a separate `feature_drift_result` table. It was
+dropped in 2.7 (decision D7): the engine's response is stored whole, as the
+reference profile is.
 
 Schema migrations are managed with Flyway; tables are never modified by hand.
 Each table is added by the migration of the feature that first uses it (V1:
@@ -218,3 +222,5 @@ run together (Milestone 5 in the roadmap).
 | D4 | Batch (file upload) ingestion first, no streaming | Fits typical offline monitoring; avoids premature infrastructure | Proposed |
 | D5 | Uploaded files on a local volume, metadata in PostgreSQL | Simple; object storage (S3/MinIO) only if needed | Implemented: content-addressed by SHA-256; path derived from the hash, not stored |
 | D6 | Synchronous HTTP between services, no broker | One caller, one callee; a queue adds no value yet | Implemented: `AnalyticsClient` with timeouts and three error types; contract checked in CI |
+| D7 | Run results stored as the engine's full JSON response (`monitoring_run.result`), not one row per feature | Results are always read per run; the engine owns the result model, so no Java re-modelling or migration per new field; trends can still query `JSONB` | Implemented (2.7). Trade-off: cross-run per-feature queries need JSONB operators or a later derived table |
+| D8 | In-memory bounded executor for runs; unfinished runs failed at startup | No broker or job table needed for one instance; capacity is refused before anything is stored | Implemented (2.7). Limits: single instance only; a restart loses queued runs (they become `FAILED`, `interrupted`) |

@@ -57,3 +57,9 @@ first release.
 - `backend`: reference registration, `POST`/`GET /api/v1/models/{id}/reference`:
   uploads a CSV, profiles it with the engine and returns the inferred schema;
   engine rejections reach the client with the engine's problem type.
+- `backend`: monitoring run lifecycle (`PENDING → RUNNING → SUCCEEDED/FAILED`)
+  on a bounded executor (`DRIFTWATCH_RUNS_CONCURRENCY`,
+  `DRIFTWATCH_RUNS_QUEUE_CAPACITY`); runs are pinned to the reference current
+  at submission, store the engine's full result or a failure reason, and runs
+  left unfinished by a restart are marked failed at startup. HTTP endpoints
+  follow in the next change.

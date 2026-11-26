@@ -94,6 +94,29 @@ public class ReferenceService {
         .orElseThrow(() -> new ReferenceNotFoundException(modelId));
   }
 
+  /**
+   * The id of the model's current reference, without loading its profile.
+   *
+   * @throws io.driftwatch.backend.model.ModelNotFoundException if the model does not exist
+   * @throws ReferenceNotFoundException if the model has no reference yet
+   */
+  @Transactional(readOnly = true)
+  public UUID currentId(UUID modelId) {
+    models.get(modelId);
+    return references
+        .findFirstByModelIdOrderByCreatedAtDescIdDesc(modelId, ReferenceRepository.IdOnly.class)
+        .map(ReferenceRepository.IdOnly::getId)
+        .orElseThrow(() -> new ReferenceNotFoundException(modelId));
+  }
+
+  /** A reference by id (for example the one a monitoring run was created with). */
+  @Transactional(readOnly = true)
+  public Reference get(UUID id) {
+    return references
+        .findById(id)
+        .orElseThrow(() -> new IllegalStateException("reference " + id + " does not exist"));
+  }
+
   /** The dataset behind a reference. */
   @Transactional(readOnly = true)
   public Dataset datasetOf(Reference reference) {

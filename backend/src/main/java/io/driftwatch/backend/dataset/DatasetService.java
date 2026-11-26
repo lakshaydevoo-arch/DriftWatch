@@ -99,6 +99,11 @@ public class DatasetService {
     return files.resource(upload.sha256());
   }
 
+  /** The stored content of a recorded dataset. */
+  public Resource resource(Dataset dataset) {
+    return files.resource(dataset.getSha256());
+  }
+
   /** A dataset by id. */
   @Transactional(readOnly = true)
   public Dataset get(UUID id) {

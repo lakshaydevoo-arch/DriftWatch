@@ -7,6 +7,109 @@ following session's commit (or read with `git log`).
 
 ---
 
+## 2026-11-26 — Milestone 2.7a: monitoring run lifecycle
+
+**Feature implemented**
+
+- `V4__create_monitoring_run.sql`: `monitoring_run` with status, the
+  requested config, the engine's full result (`JSONB`), failure fields
+  (`error_kind`, `error_message`, `error_details`) and timestamps. One check
+  constraint ties each status to exactly its fields (a `SUCCEEDED` run has a
+  result and engine version; a `FAILED` run has a reason and no result; a
+  `PENDING` run has not started). Composite foreign keys make the compared
+  dataset a `CURRENT` dataset of the same model and the reference a reference
+  of the same model; each batch belongs to one run.
+- `RunService.submit`: reserve executor capacity, pin the current reference,
+  store the file, insert dataset + `PENDING` run in one transaction, then
+  queue the run after the commit.
+- `RunExecutor`: fixed worker pool plus a semaphore of
+  `concurrency + queue-capacity` slots, reserved *before* anything is stored,
+  so a refused submission leaves no file, dataset or run behind.
+- `RunWorker`: claims the run with a conditional `UPDATE … WHERE status =
+  'PENDING'` (a run starts at most once), calls `/v1/drift` with no
+  transaction open, validates the response's required fields and stores the
+  result or a failure reason in one transaction. No automatic retries.
+- `RunRecovery`: at startup, before the web server accepts requests, marks
+  `PENDING`/`RUNNING` runs `FAILED` (`interrupted`).
+- `ReferenceService.currentId` (id only, without loading the multi-MB
+  profile) and `get`; `DatasetService.resource(Dataset)`.
+- HTTP endpoints are deliberately left for 2.7b so this commit stays one
+  reviewable piece (persistence and concurrency).
+
+**Why this design**
+
+- *Problem:* drift on a 100 MB batch can take minutes; an HTTP request
+  should not wait that long, and the result must survive the request.
+- *Async with a stored state machine:* the client gets a run id at once and
+  polls. Every terminal state is complete by construction (database checks),
+  so a run can never look finished with half a result.
+- *Bounded:* each run holds a whole batch in the engine's memory. Two workers
+  and a 20-run queue by default; beyond that the backend says "try later"
+  rather than queueing without limit.
+- *Results as JSON (D7, changes the architecture sketch):* the planned
+  `feature_drift_result` table was dropped. Results are always read per run,
+  and the engine owns their shape; storing them whole mirrors the reference
+  profile and needs no migration when the engine adds a field.
+- *Fail, don't resume, after a restart (D8):* re-queueing could loop on a
+  batch that crashes the engine; failing tells the client what happened.
+
+**Trade-offs and failure cases**
+
+- Single instance only: a second instance starting up would fail the first
+  one's in-flight runs. Needs a lease/owner column before scaling out.
+- A restart loses queued runs (they become `FAILED`, `interrupted`).
+- If the database is down when a worker stores the outcome, the run stays
+  `RUNNING` until the next start, when recovery fails it.
+- The engine validates `config` only when the run executes, so a bad config
+  becomes a `FAILED` run (`invalid-config`) rather than an immediate `400`.
+- Cross-run per-feature queries (drift over time) need JSONB operators.
+
+**Files changed**
+
+- `backend/src/main/resources/db/migration/V4__create_monitoring_run.sql`
+- `backend/src/main/java/io/driftwatch/backend/run/` (new):
+  `MonitoringRun`, `MonitoringRunRepository`, `RunStatus`, `RunService`,
+  `RunWorker`, `RunExecutor`, `RunRecovery`, `RunConfiguration`,
+  `RunProperties`, `RunCapacityExceededException`, `RunNotFoundException`,
+  `ReferenceRequiredException`
+- `backend/src/main/java/io/driftwatch/backend/reference/ReferenceService.java`,
+  `ReferenceRepository.java`; `dataset/DatasetService.java`
+- `backend/src/main/resources/application.yml` (`driftwatch.runs.*`)
+- Tests: `run/RunLifecycleTest`, `run/RunCapacityTest`,
+  `run/MonitoringRunSchemaTest`, `run/RunEngineContractTest`, `run/RunFixtures`;
+  `DatabaseSchemaTest` (V4 in history), `TestDatabase` (deletes runs first)
+- Docs: `backend/README.md`, `ARCHITECTURE.md`, `DEVELOPMENT_ROADMAP.md`,
+  `CHANGELOG.md`, this log
+
+**Tests executed**
+
+- `./mvnw verify`: 164 passed, 12 skipped (engine-contract tests, gated on
+  `DRIFTWATCH_ANALYTICS_URL`), Spotless clean.
+- Engine-contract tests against a locally started real engine: 14 passed,
+  including the new `RunEngineContractTest` (a +15 shift in `age` is flagged,
+  the unshifted `region` is not; a batch without `age` fails with
+  `schema-mismatch`).
+- Flakiness: `RunLifecycleTest` + `RunCapacityTest` repeated 5 times, and the
+  full suite in reverse order (166 passed with the engine running); all green.
+- One test expectation was wrong and fixed: an unknown status violates both
+  the status and the state check, and PostgreSQL reports the state check
+  first; the test now asserts a check-constraint violation.
+
+**Commit hash**
+
+- To be recorded in the next entry (see `git log`).
+
+**Remaining work**
+
+- 2.7b: `POST /api/v1/models/{id}/runs` (multipart `current` + optional
+  `config`, `202 Accepted`), `GET /api/v1/runs/{runId}`, problem types
+  (`run-capacity-exceeded` 503, `reference-required` 409, `run-not-found`
+  404), API tests and an HTTP engine-contract test.
+- 2.8: per-feature results and run history.
+- License decision (open).
+
+---
+
 ## 2026-11-22 — Publish to GitHub
 
 **What changed**
@@ -72,7 +175,7 @@ following session's commit (or read with `git log`).
 
 **Commit hash**
 
-- To be recorded in the next entry (see `git log`).
+- `9147086` (noreply hash update) + `52496a6` (co-author removal hash update)
 
 **Remaining work**
 

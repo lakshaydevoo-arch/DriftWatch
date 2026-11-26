@@ -4,7 +4,8 @@
 health and build-info endpoints (2.1); PostgreSQL with Flyway migrations and
 Testcontainers integration tests (2.2); model registry API (2.3); dataset
 file storage (2.4, internal: the upload endpoints come with 2.6 and 2.7);
-analytics engine client (2.5, internal); reference registration (2.6).
+analytics engine client (2.5, internal); reference registration (2.6);
+monitoring run lifecycle (2.7a, internal: the HTTP endpoints come with 2.7b).
 
 Spring Boot application that will expose the public REST API, store models,
 datasets, reference profiles and monitoring results in PostgreSQL, and call
@@ -206,12 +207,74 @@ foreign key on `(dataset_id, model_id, role)`).
 | 502 | `analytics-protocol-error` | The engine's response broke the contract (logged) |
 | 503 | `analytics-unavailable` | Engine down or timed out; `Retry-After: 30`. The engine's address is logged, never returned |
 
+## Monitoring runs
+
+A monitoring run compares one uploaded **current** batch with the model's
+reference profile on a background worker (package `run`). The HTTP endpoints
+arrive with task 2.7b; this section describes the lifecycle they will use.
+
+```text
+PENDING ──► RUNNING ──► SUCCEEDED   (engine's complete result stored)
+   │           └──────► FAILED      (reason stored: error_kind + message)
+   └──────────────────► FAILED      (interrupted by a restart)
+```
+
+**Submitting** (`RunService.submit`):
+
+1. Reserve a place in the bounded executor. If all workers are busy and the
+   queue is full, refuse at once (`RunCapacityExceededException`, will be
+   `503`): nothing is stored.
+2. Look up the model's current reference. The run is **pinned** to it, so
+   registering a newer reference while a run waits does not change what the
+   run compares against. No reference → `ReferenceRequiredException`.
+3. Store the file (no transaction open), then insert the `CURRENT` dataset
+   and the `PENDING` run in one transaction.
+4. After the commit, hand the run to a worker.
+
+**Executing** (`RunWorker`):
+
+1. Claim the run with one conditional `UPDATE … WHERE status = 'PENDING'`,
+   so a run is started at most once.
+2. Send the stored profile (unchanged) and the stored batch to the engine's
+   `/v1/drift`, with no transaction open.
+3. In one short transaction, store either the full response (`SUCCEEDED`) or
+   the reason (`FAILED`). A response without `engine_version`, `n_rows`,
+   `summary` or `features` is treated as a contract violation, not a success.
+
+| Failure | `error_kind` | Stored message |
+|---------|--------------|----------------|
+| Engine rejected the batch | the engine's problem kind, e.g. `schema-mismatch`, `invalid-csv`, `invalid-config` | the engine's `detail`; its `errors` in `error_details` |
+| Engine down or timed out | `analytics-unavailable` | generic (the engine's address is only logged) |
+| Response broke the contract | `analytics-protocol-error` | generic (details logged) |
+| Anything else | `internal-error` | generic (stack trace logged) |
+| Backend restarted mid-run | `interrupted` | "submit the batch again" |
+
+Runs are **not retried automatically**: a rejection would fail again, and
+re-sending a large batch doubles the engine's load. The client resubmits.
+
+**Restarts.** The queue is in memory. At startup, before the web server
+accepts requests, `RunRecovery` marks every `PENDING` or `RUNNING` run
+`FAILED` (`interrupted`), so no run stays unfinished forever. This assumes a
+**single backend instance**; several instances sharing a database would need
+a lease or owner column first.
+
+**Database guarantees (Flyway V4).** Check constraints make each status
+carry exactly its fields (a `SUCCEEDED` run always has a result and engine
+version, a `FAILED` run always has a reason and never a result, a `PENDING`
+run has not started). Composite foreign keys ensure the compared dataset is
+a `CURRENT` dataset of the same model and the reference belongs to the same
+model. Each batch belongs to one run.
+
+| Property | Default | Meaning |
+|----------|---------|---------|
+| `driftwatch.runs.concurrency` (`DRIFTWATCH_RUNS_CONCURRENCY`) | `2` | Runs sent to the engine at once (each holds a whole batch in the engine's memory) |
+| `driftwatch.runs.queue-capacity` (`DRIFTWATCH_RUNS_QUEUE_CAPACITY`) | `20` | Accepted runs that may wait for a worker |
+
 ## Dataset storage
 
 Uploaded CSV files are kept in a **content-addressed file store**
 (`dataset.ContentAddressedFileStore`); each upload is recorded as a row in
-`dataset` (Flyway V2). Reference registration (above) uses it; batch upload
-(task 2.7) will too.
+`dataset` (Flyway V2). Reference registration and monitoring runs (above) use it.
 
 Uploads are limited twice: Spring's multipart parser
 (`spring.servlet.multipart.max-file-size`, set to the same value) rejects
