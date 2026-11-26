@@ -2,13 +2,20 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, File, Request, UploadFile
+from fastapi import APIRouter, File, Form, Request, UploadFile
 from pydantic import BaseModel, ValidationError
 
 from driftwatch_analytics._version import ENGINE_VERSION
 from driftwatch_analytics.api.errors import ApiError, pydantic_errors
 from driftwatch_analytics.api.uploads import read_csv_upload, read_upload
-from driftwatch_analytics.performance import JoinError, JoinReport, join_labels
+from driftwatch_analytics.performance import (
+    JoinError,
+    JoinReport,
+    PerformanceConfig,
+    PerformanceMetrics,
+    compute_metrics,
+    join_labels,
+)
 from driftwatch_analytics.profiling import ReferenceProfile
 from driftwatch_analytics.settings import Settings
 
@@ -18,7 +25,9 @@ router = APIRouter(tags=["performance"])
 class PerformanceResponse(BaseModel):
     engine_version: str
     profile_engine_version: str
+    config: PerformanceConfig
     join: JoinReport
+    metrics: PerformanceMetrics
 
 
 @router.post(
@@ -34,12 +43,24 @@ def evaluate_performance(
     labels: Annotated[
         UploadFile, File(description="Ground truth: record id and target columns (CSV)")
     ],
+    config: Annotated[
+        str | None, Form(description="JSON-encoded PerformanceConfig (optional)")
+    ] = None,
 ) -> PerformanceResponse:
-    """Join labels to the batch by record id and report how many joined.
-
-    Performance metrics on the joined rows are added by roadmap task 3.3.
-    """
+    """Join labels to the batch by record id and compute metrics on the joined rows."""
     settings: Settings = request.app.state.settings
+    try:
+        performance_config = (
+            PerformanceConfig.model_validate_json(config) if config else PerformanceConfig()
+        )
+    except ValidationError as exc:
+        raise ApiError(
+            422,
+            "invalid-config",
+            "Invalid configuration",
+            "config is invalid",
+            pydantic_errors(exc),
+        ) from exc
     try:
         reference = ReferenceProfile.model_validate_json(
             read_upload(profile, settings.max_upload_bytes, "profile")
@@ -61,5 +82,7 @@ def evaluate_performance(
     return PerformanceResponse(
         engine_version=ENGINE_VERSION,
         profile_engine_version=reference.engine_version,
+        config=performance_config,
         join=result.report,
+        metrics=compute_metrics(batch, result.joined, reference.dataset_schema, performance_config),
     )

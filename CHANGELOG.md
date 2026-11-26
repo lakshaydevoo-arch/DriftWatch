@@ -88,3 +88,8 @@ first release.
 - `backend`: `recordIdColumn` on models (Flyway V5), sent when profiling;
   `POST`/`GET /api/v1/runs/{runId}/labels` uploads ground-truth labels for a
   run and stores the engine's join report (`labels-not-found` 404).
+- `analytics`: performance metrics on joined labels in `/v1/performance`:
+  accuracy, precision, recall, F1 and ROC AUC (binary), accuracy and macro /
+  weighted F1 (multiclass), MAE, RMSE and R² (regression); configurable
+  minimum rows, probability threshold and positive label; undefined metrics
+  are `null`. The target column is now typed by the task.

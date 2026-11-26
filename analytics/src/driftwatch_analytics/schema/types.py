@@ -69,6 +69,9 @@ class ColumnSchema:
 @dataclass(frozen=True)
 class DatasetSchema:
     columns: tuple[ColumnSchema, ...]
+    # The model's task, when given; decides which performance metrics apply.
+    # None for profiles built without one (or before it was recorded).
+    task_type: TaskType | None = None
 
     def __post_init__(self) -> None:
         names = [column.name for column in self.columns]

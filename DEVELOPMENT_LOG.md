@@ -7,6 +7,79 @@ following session's commit (or read with `git log`).
 
 ---
 
+## 2026-11-27 — Milestone 3.3a: performance metrics (engine) — #2
+
+**Feature implemented**
+
+- `performance.compute_metrics` on the joined rows, in `/v1/performance`:
+  binary (accuracy, precision, recall, F1, ROC AUC for probabilities),
+  multiclass (accuracy, macro F1, weighted F1), regression (MAE, RMSE, R²).
+- `PerformanceConfig`: `min_evaluated` (30), `probability_threshold` (0.5),
+  `positive_label`. Response: `status` (`evaluated`, `insufficient_data`,
+  `unavailable` with `reason`), counts of evaluated / missing / invalid
+  predictions, `metrics`, `notes`; the applied config is echoed.
+- Positive class policy (chosen by the maintainer): true for boolean labels;
+  otherwise `positive_label` is required and, without it, only accuracy is
+  reported. Undefined metrics are `null`, never 0.
+- `DatasetSchema.task_type` is now recorded in profiles (defaults to `null`
+  for older profiles, which then give `unavailable` metrics).
+- **Bug found and fixed while testing:** the *target* column kept its plain
+  inferred type, so a regression target such as `1.0, 3.0` became an
+  integer-coded category and regression metrics were unavailable. The target
+  is now typed by the task, like the prediction (override still wins).
+- `scikit-learn` moved from a dev to a runtime dependency (lock unchanged:
+  same pinned versions).
+
+**Why this design**
+
+- Metrics only where they mean something: a minimum row count, explicit
+  positive class, and `null` for undefined values, so the dashboard never
+  shows a confident-looking 0.0 that is really "cannot be computed".
+- scikit-learn's implementations (design §6) rather than hand-written
+  formulas; the tests check them against hand-computed confusion counts and
+  residuals, and end to end against models trained on real data.
+
+**Trade-offs and failure cases**
+
+- No confidence intervals yet (#19), so small joined subsets are noisy.
+- Multiclass probability outputs (one score per class) are not supported;
+  a single numeric prediction for a multiclass model is `unavailable`.
+- Degradation flags need a baseline: #3 (3.4).
+
+**Files changed**
+
+- `analytics/src/driftwatch_analytics/performance/metrics.py` (new),
+  `performance/__init__.py`, `api/performance.py`; `schema/types.py`
+  (`task_type`), `schema/inference.py` (target typed by task)
+- `analytics/pyproject.toml` (scikit-learn runtime)
+- Tests: `tests/performance/test_metrics.py` (15),
+  `tests/test_real_data_performance.py` (2), `tests/test_performance_api.py`
+  (+4), `tests/schema/test_roles.py` (+6)
+- Docs: `analytics/README.md`, `ML_MONITORING_DESIGN.md` §6,
+  `DEVELOPMENT_ROADMAP.md`, `CHANGELOG.md`, this log
+
+**Tests executed**
+
+- `pytest`: 406 passed; `ruff format --check`, `ruff check`, `mypy` (strict)
+  clean. Real data: logistic regression on breast cancer (ROC AUC > 0.95)
+  and linear regression on diabetes; every metric equals scikit-learn's
+  computed directly on the same predictions.
+- Backend engine-contract tests against the updated engine: 21 passed.
+- One test expectation was wrong: I expected AUC 2/3 for calibrated uniform
+  scores; the correct value is 5/6 (∫ 2x(2x − x²) dx), which the engine
+  produced (0.840 on 2,000 rows).
+
+**Commit hash**
+
+- To be recorded in the next entry (see `git log`).
+
+**Remaining work**
+
+- 3.3b: backend stores and returns the metrics with each labels upload
+  (closes #2).
+
+---
+
 ## 2026-11-27 — Repository setup: license, templates, issues
 
 **What changed** (requested by the maintainer: "open relevant issues … make
@@ -46,7 +119,7 @@ it a full-fledged repo")
 
 **Commit hash**
 
-- To be recorded in the next entry (see `git log`).
+- `5a32661` (license, templates) + `108c542` (README, roadmap links)
 
 **Remaining work**
 

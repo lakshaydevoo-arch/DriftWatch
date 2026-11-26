@@ -128,13 +128,17 @@ def infer_schema(
         else:
             column = _infer_column(name, data[name], config)
         if name == target_column:
-            column = replace(column, excluded=ExclusionReason.TARGET_COLUMN, role=ColumnRole.TARGET)
+            column = replace(
+                _target(name, data[name], task_type, overrides.get(name), column, config),
+                excluded=ExclusionReason.TARGET_COLUMN,
+                role=ColumnRole.TARGET,
+            )
         elif name == record_id_column:
             column = replace(column, excluded=ExclusionReason.RECORD_ID, role=ColumnRole.RECORD_ID)
         elif name in exclude:
             column = replace(column, excluded=ExclusionReason.USER_EXCLUDED)
         columns.append(column)
-    return DatasetSchema(tuple(columns))
+    return DatasetSchema(tuple(columns), task_type)
 
 
 def _check_roles(
@@ -178,17 +182,41 @@ def _prediction(
         )
     if task_type is TaskType.REGRESSION or _looks_like_probabilities(text):
         return ColumnSchema(name, LogicalType.NUMERIC, TypeSource.TASK_TYPE, role=role)
-    # Class labels. A boolean column (true/false labels) stays boolean;
-    # anything else, including numbers such as 0/1 or 1-12, is categorical.
+    return replace(_class_labels(name, text, config), role=role)
+
+
+def _target(
+    name: str,
+    text: pd.Series,
+    task_type: TaskType | None,
+    override: LogicalType | None,
+    inferred: ColumnSchema,
+    config: InferenceConfig,
+) -> ColumnSchema:
+    """The target: typed by override, else by task (metrics need the right type), else inferred.
+
+    Without the task rule a regression target such as ``1.0, 3.0`` would be
+    inferred as an integer-coded category, and a classifier's labels ``0-14``
+    as numeric.
+    """
+    if override is not None or task_type is None:
+        return inferred
+    if task_type is TaskType.REGRESSION:
+        return ColumnSchema(name, LogicalType.NUMERIC, TypeSource.TASK_TYPE)
+    return _class_labels(name, text, config)
+
+
+def _class_labels(name: str, text: pd.Series, config: InferenceConfig) -> ColumnSchema:
+    """A boolean column (true/false labels) stays boolean; anything else, including
+    numbers such as 0/1 or 1-12, is categorical."""
     inferred = _infer_column(name, text, config)
     if inferred.logical_type is LogicalType.BOOLEAN:
-        return replace(inferred, source=TypeSource.TASK_TYPE, role=role)
+        return replace(inferred, source=TypeSource.TASK_TYPE)
     return ColumnSchema(
         name,
         LogicalType.CATEGORICAL,
         TypeSource.TASK_TYPE,
         integer_coded=_is_integer_coded(text, LogicalType.CATEGORICAL),
-        role=role,
     )
 
 

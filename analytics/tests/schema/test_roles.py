@@ -169,3 +169,52 @@ def test_a_missing_prediction_in_a_current_batch_is_an_error() -> None:
 
     assert not report.is_valid
     assert [(i.code, i.column) for i in report.issues] == [(IssueCode.MISSING_COLUMN, "score")]
+
+
+# --- target type by task (metrics need the right type)
+
+
+@pytest.mark.parametrize(
+    ("values", "task", "expected"),
+    [
+        # Few distinct whole numbers would be inferred as an integer-coded category.
+        (["1.0", "3.0", "3.0"], REGRESSION, LogicalType.NUMERIC),
+        # Many integer classes would be inferred as numeric.
+        ([str(i % 15) for i in range(60)], MULTICLASS, LogicalType.CATEGORICAL),
+        (["0", "1", "1"], BINARY, LogicalType.BOOLEAN),
+        (["approve", "deny"], BINARY, LogicalType.CATEGORICAL),
+    ],
+)
+def test_the_target_type_follows_the_task(
+    values: list[str], task: TaskType, expected: LogicalType
+) -> None:
+    schema = infer_schema(
+        _frame(x=[str(i) for i in range(len(values))], y=values),
+        task_type=task,
+        target_column="y",
+    )
+
+    target = schema.column("y")
+    assert target.logical_type is expected
+    assert target.role is ColumnRole.TARGET
+    assert not target.monitored
+    assert schema.task_type is task
+
+
+def test_without_a_task_the_target_keeps_its_inferred_type() -> None:
+    schema = infer_schema(_frame(x=["1", "2"], y=["1.0", "3.0"]), target_column="y")
+
+    assert schema.column("y").logical_type is LogicalType.CATEGORICAL
+    assert schema.task_type is None
+
+
+def test_an_override_wins_for_the_target() -> None:
+    schema = infer_schema(
+        _frame(x=["1", "2"], y=["1", "2"]),
+        overrides={"y": LogicalType.CATEGORICAL},
+        task_type=REGRESSION,
+        target_column="y",
+    )
+
+    assert schema.column("y").logical_type is LogicalType.CATEGORICAL
+    assert schema.column("y").source is TypeSource.OVERRIDE

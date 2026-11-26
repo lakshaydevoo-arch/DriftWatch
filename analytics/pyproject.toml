@@ -19,6 +19,8 @@ dependencies = [
     "numpy~=2.5",
     "pandas~=3.1",
     "scipy~=1.18",
+    # Performance metrics (design section 6).
+    "scikit-learn~=1.9",
 ]
 
 [project.optional-dependencies]
@@ -29,9 +31,6 @@ dev = [
     "mypy~=2.4",
     "pandas-stubs~=3.1.0",
     "scipy-stubs~=1.18.1",
-    # Bundled real datasets for tests (offline). Becomes a runtime dependency
-    # with performance metrics in Milestone 3.
-    "scikit-learn~=1.9",
 ]
 
 [tool.setuptools.packages.find]

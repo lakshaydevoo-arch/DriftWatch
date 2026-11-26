@@ -1,7 +1,8 @@
 # analytics — statistical engine
 
 **Status:** Milestone 1 complete; Milestone 3 in progress (3.1a: prediction
-and target columns; 3.2a: joining labels by record id). Milestone 1 implemented: service scaffold with
+and target columns; 3.2a: joining labels by record id; 3.3a: performance
+metrics). Milestone 1 implemented: service scaffold with
 `/health` (1.1), the seeded synthetic data generator (1.2) and CSV loading
 with schema inference and batch validation (1.3), reference profiles
 (1.4), numeric drift with PSI and KS (1.5), and categorical drift with
@@ -274,7 +275,7 @@ Interactive docs: `/docs`; machine-readable schema: `/openapi.json`.
 | `GET` | `/health` | | `200 {"status": "ok", "engine_version": "..."}` |
 | `POST` | `/v1/profile` | `file`: reference CSV; `options` (optional): JSON `ProfileOptions` | `200 {"profile": ReferenceProfile, "issues": [...]}` |
 | `POST` | `/v1/drift` | `profile`: profile JSON **file**; `current`: current CSV; `config` (optional): JSON `DriftConfig` | `200 DriftResponse` |
-| `POST` | `/v1/performance` | `profile`: profile JSON **file**; `current`: the batch CSV; `labels`: CSV with the record id and target columns | `200 {"engine_version", "profile_engine_version", "join": JoinReport}` |
+| `POST` | `/v1/performance` | `profile`: profile JSON **file**; `current`: the batch CSV; `labels`: CSV with the record id and target columns; `config` (optional): JSON `PerformanceConfig` | `200 {"engine_version", "profile_engine_version", "config", "join": JoinReport, "metrics": PerformanceMetrics}` |
 
 The profile is sent as a file part, not a text field, because Starlette
 limits ordinary form fields to 1 MB and a profile can be larger (about
@@ -336,9 +337,35 @@ missing id joins nothing. Counts:
 | `n_current_without_id`, `n_labels_without_id` | Rows whose id is missing |
 | `n_matched` | Batch rows whose id has a label row |
 | `n_missing_labels`, `n_invalid_labels` | Matched rows whose label is missing or does not parse as the target's type |
-| `n_joined` | Matched rows with a valid label (what metrics will use, task 3.3) |
+| `n_joined` | Matched rows with a valid label (what metrics use) |
 | `n_unmatched_labels` | Label rows whose id is not in the batch (ignored) |
 | `join_rate` | `n_joined / n_current_rows`; `null` for an empty batch |
+
+### `PerformanceMetrics` (`/v1/performance`)
+
+Computed on the joined rows whose prediction is present and valid
+(`n_evaluated`; missing and invalid predictions are counted separately).
+
+| Task | `metrics` |
+|------|-----------|
+| `binary_classification` | `accuracy`, `precision`, `recall`, `f1` (for the positive class); `roc_auc` when the prediction is a probability |
+| `multiclass_classification` | `accuracy`, `macro_f1`, `weighted_f1` |
+| `regression` | `mae`, `rmse`, `r2` |
+
+`status` is `evaluated`, `insufficient_data` (fewer than `min_evaluated`
+rows, default 30: no metrics) or `unavailable` (`reason` says why, e.g. no
+task type in the profile). A metric that is undefined for the data (ROC AUC
+with one class, precision with no predicted positives, R² with constant
+labels) is `null`, never 0; `notes` explain each such case.
+
+`PerformanceConfig`: `{"min_evaluated": 30, "probability_threshold": 0.5,
+"positive_label": null}`. The positive class is the true value for boolean
+labels (`1`, `yes`, `true`); for other labels set `positive_label`, otherwise
+only `accuracy` is computed (precision/recall/F1 `null`) — it is never
+guessed. A probability prediction with non-boolean labels needs
+`positive_label` (status `unavailable` otherwise). The target's type follows
+the task like the prediction's: numeric for regression, class labels for
+classification.
 
 ### `DriftResponse`
 

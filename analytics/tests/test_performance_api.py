@@ -146,3 +146,67 @@ def test_a_missing_labels_part_is_invalid_request(client: TestClient, profile: b
     )
 
     _problem(response, "invalid-request")
+
+
+def _scored_batch(n: int) -> tuple[str, str]:
+    """A batch of n scored rows and labels for all of them (half right at 0.5)."""
+    rows = [(f"c{i}", (i % 10) / 10 + 0.05, i % 2) for i in range(n)]
+    current = "id,x,score\n" + "".join(f"{r},{i},{s:.2f}\n" for i, (r, s, _) in enumerate(rows))
+    labels = "id,label\n" + "".join(f"{r},{y}\n" for r, _, y in rows)
+    return current, labels
+
+
+def test_metrics_are_computed_on_the_joined_rows(client: TestClient, profile: bytes) -> None:
+    current, labels = _scored_batch(100)
+
+    body = _post(client, profile, current, labels).json()
+
+    metrics = body["metrics"]
+    assert metrics["status"] == "evaluated"
+    assert metrics["task_type"] == "binary_classification"
+    assert metrics["positive_label"] == "true"
+    assert metrics["n_evaluated"] == 100
+    assert set(metrics["metrics"]) == {"accuracy", "precision", "recall", "f1", "roc_auc"}
+    assert body["config"] == {
+        "min_evaluated": 30,
+        "probability_threshold": 0.5,
+        "positive_label": None,
+    }
+
+
+def test_few_joined_rows_give_no_metrics(client: TestClient, profile: bytes) -> None:
+    metrics = _post(client, profile, CURRENT, "id,label\na,1\nb,0\n").json()["metrics"]
+
+    assert metrics["status"] == "insufficient_data"
+    assert metrics["metrics"] == {}
+
+
+def test_a_config_changes_the_rules(client: TestClient, profile: bytes) -> None:
+    current, labels = _scored_batch(10)
+    response = client.post(
+        "/v1/performance",
+        files={
+            "profile": ("profile.json", profile, "application/json"),
+            "current": ("current.csv", current.encode(), "text/csv"),
+            "labels": ("labels.csv", labels.encode(), "text/csv"),
+        },
+        data={"config": json.dumps({"min_evaluated": 5, "probability_threshold": 0.9})},
+    )
+
+    assert response.json()["metrics"]["status"] == "evaluated"
+    assert response.json()["config"]["probability_threshold"] == 0.9
+
+
+def test_an_invalid_config_is_rejected(client: TestClient, profile: bytes) -> None:
+    current, labels = _scored_batch(10)
+    response = client.post(
+        "/v1/performance",
+        files={
+            "profile": ("profile.json", profile, "application/json"),
+            "current": ("current.csv", current.encode(), "text/csv"),
+            "labels": ("labels.csv", labels.encode(), "text/csv"),
+        },
+        data={"config": json.dumps({"probability_threshold": 1.5})},
+    )
+
+    _problem(response, "invalid-config")

@@ -281,6 +281,20 @@ target's type. `join_rate = joined / batch rows`. Rows with a missing id,
 matched rows with a missing or invalid label, and labels for unknown ids are
 each counted, so a low join rate can be explained.
 
+Metric rules (implemented in 3.3a):
+
+- Rows count only if both label and prediction are present and valid; fewer
+  than 30 such rows (configurable) give no metrics at all.
+- **Positive class (binary):** the true value for boolean labels
+  (`1`/`yes`/`true`); otherwise it must be configured, and without it only
+  accuracy is reported. Choosing it automatically (e.g. the minority class)
+  was rejected: it can silently pick the wrong class.
+- A probability prediction is thresholded at 0.5 (configurable) for the
+  class-based metrics; ROC AUC uses the probabilities directly.
+- Undefined metrics are `null`, never 0, with a note.
+- The target is typed by the task (regression → numeric; classification →
+  labels), for the same reason as the prediction (§5).
+
 | Task | Metrics (scikit-learn) |
 |------|------------------------|
 | Binary classification | accuracy, precision, recall, F1, ROC AUC (if probabilities are available) |
