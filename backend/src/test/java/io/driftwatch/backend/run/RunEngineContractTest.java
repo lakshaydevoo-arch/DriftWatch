@@ -151,6 +151,36 @@ class RunEngineContractTest {
     assertThat(result.get("summary").get("n_drifted").asInt()).isGreaterThanOrEqualTo(1);
     // The engine applied the requested threshold and reports it in the full config.
     assertThat(result.get("config").get("numeric").get("psi_threshold").asDouble()).isEqualTo(0.25);
+
+    // Per-feature results: the real FeatureDriftResult shape, in schema order.
+    JsonNode features =
+        json.readTree(
+            http.send(
+                    HttpRequest.newBuilder(URI.create(location + "/features?drifted=true"))
+                        .GET()
+                        .build(),
+                    HttpResponse.BodyHandlers.ofString())
+                .body());
+    assertThat(features.get("totalFeatures").asInt()).isEqualTo(2);
+    JsonNode age = features.get("features").get(0);
+    assertThat(age.get("name").asString()).isEqualTo("age");
+    assertThat(age.get("drift_detected").asBoolean()).isTrue();
+    assertThat(age.get("drift").get("kind").asString()).isEqualTo("numeric");
+    assertThat(age.get("drift").get("psi").asDouble())
+        .isGreaterThan(age.get("drift").get("effective_threshold").asDouble());
+
+    // Run history contains the run.
+    JsonNode history =
+        json.readTree(
+            http.send(
+                    HttpRequest.newBuilder(
+                            URI.create(
+                                "http://localhost:" + port + "/api/v1/models/" + modelId + "/runs"))
+                        .GET()
+                        .build(),
+                    HttpResponse.BodyHandlers.ofString())
+                .body());
+    assertThat(history.get("items").get(0)).isEqualTo(run);
   }
 
   @Test

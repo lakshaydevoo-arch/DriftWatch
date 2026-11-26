@@ -43,7 +43,7 @@ Depends on: nothing.
   scikit-learn bundled datasets
 - ✅ 1.10 GitHub Actions workflow for `analytics` (lint, type check, tests)
 
-## Milestone 2 — Platform backend (Spring Boot) 🔄
+## Milestone 2 — Platform backend (Spring Boot) ✅
 
 Depends on: Milestone 1 API contracts (1.8).
 
@@ -59,8 +59,8 @@ Depends on: Milestone 1 API contracts (1.8).
   on a bounded executor
   - ✅ 2.7a Run table (V4), bounded executor, worker, restart recovery
   - ✅ 2.7b `POST /api/v1/models/{id}/runs`, `GET /api/v1/runs/{runId}`
-- ⏳ 2.8 Run results API (per-feature results, run history); the end-to-end
-  test with a real engine exists since 2.7b
+- ✅ 2.8 Run results API (per-feature results, run history); end-to-end
+  test with a real engine
 
 ## Milestone 3 — Prediction drift and performance ⏳
 

@@ -156,7 +156,8 @@ are application-generated UUIDs.
 | `GET`  | `/api/v1/models/{id}/reference` | Current reference and its inferred schema (implemented) |
 | `POST` | `/api/v1/models/{id}/runs` | Upload current batch and start a run (implemented; [contract](backend/README.md#monitoring-runs)) |
 | `GET`  | `/api/v1/runs/{runId}` | Run status and summary (implemented) |
-| `GET`  | `/api/v1/runs/{runId}/features` | Per-feature drift results |
+| `GET`  | `/api/v1/runs/{runId}/features` | Per-feature drift results (implemented) |
+| `GET`  | `/api/v1/models/{id}/runs` | Run history, paginated (implemented) |
 
 Internal engine API (`analytics`, not exposed publicly):
 

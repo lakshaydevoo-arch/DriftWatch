@@ -5,7 +5,8 @@ health and build-info endpoints (2.1); PostgreSQL with Flyway migrations and
 Testcontainers integration tests (2.2); model registry API (2.3); dataset
 file storage (2.4, internal: the upload endpoints come with 2.6 and 2.7);
 analytics engine client (2.5, internal); reference registration (2.6);
-monitoring runs (2.7): asynchronous drift runs with a status API.
+monitoring runs (2.7): asynchronous drift runs with a status API; run
+results (2.8): per-feature results and run history.
 
 Spring Boot application that will expose the public REST API, store models,
 datasets, reference profiles and monitoring results in PostgreSQL, and call
@@ -216,6 +217,8 @@ reference profile on a background worker (package `run`).
 |--------|------|---------|--------|
 | `POST` | `/api/v1/models/{id}/runs` | `202 Accepted` + `Location` + run (`PENDING`) | `400`, `404`, `409`, `413`, `415`, `503` |
 | `GET` | `/api/v1/runs/{runId}` | `200` run | `400` (malformed id), `404` (`run-not-found`) |
+| `GET` | `/api/v1/runs/{runId}/features?drifted=` | `200` per-feature results | `400`, `404`, `409` (`run-not-succeeded`) |
+| `GET` | `/api/v1/models/{id}/runs?page=0&size=20` | `200` page of runs, newest first | `400` (page < 0, size not 1–100), `404` |
 
 ```bash
 curl -i -F current=@today.csv localhost:8080/api/v1/models/$MODEL_ID/runs
@@ -252,9 +255,43 @@ The `POST` answers immediately, before the comparison runs. Poll the
 
 `result` is set only for `SUCCEEDED` runs and `error` only for `FAILED`
 runs: `{"type": "urn:driftwatch:problem:schema-mismatch", "message": "...",
-"details": [...]}`. Branch on `error.type`. Per-feature results are stored
-but not returned yet (task 2.8). `result.config` is the complete config the
-engine applied, with defaults filled in, so a run can be repeated exactly.
+"details": [...]}`. Branch on `error.type`. `result.config` is the complete
+config the engine applied, with defaults filled in, so a run can be repeated
+exactly. The per-feature list is left out of the run view (it can be large)
+and has its own endpoint.
+
+**Per-feature results** (`GET /api/v1/runs/{runId}/features`; values
+illustrative):
+
+```json
+{"runId": "...", "totalFeatures": 2, "returnedFeatures": 1,
+ "features": [
+   {"name": "age", "logical_type": "numeric", "status": "evaluated",
+    "drift_detected": true, "flags": [], "valid_count_current": 800,
+    "missing_rate_reference": 0.0, "missing_rate_current": 0.0,
+    "invalid_rate_current": 0.0,
+    "drift": {"kind": "numeric", "method": "psi", "psi": 0.93, "threshold": 0.25,
+              "noise_floor": 0.02, "effective_threshold": 0.25,
+              "drift_detected": true, "ks_statistic": 0.42, "ks_p_value": 1e-60,
+              "...": "..."}}]}
+```
+
+The objects are the engine's `FeatureDriftResult`s, in schema order and
+exactly as stored, so their fields are in the engine's snake_case (like
+`summary`); [ML_MONITORING_DESIGN.md](../ML_MONITORING_DESIGN.md) defines
+each statistic. `drifted=true` keeps only features with `drift_detected`,
+`drifted=false` only the others; `totalFeatures` counts all of them. There
+is no pagination: the list is bounded by the number of monitored columns and
+already lives in one row. A run that is not `SUCCEEDED` has no features:
+`409 run-not-succeeded`, with the run's status in `runStatus`.
+
+**Run history** (`GET /api/v1/models/{id}/runs`): runs of every status, newest
+first (ties broken by the time-ordered id, so pages are stable), as
+`{"items": [...], "page", "size", "totalItems", "totalPages"}`. Each item is
+the same view as `GET /api/v1/runs/{runId}`. These reads are SQL against the
+`JSONB` result: PostgreSQL drops the feature list (`result - 'features'`) for
+run views and extracts only it (`result -> 'features'`) for the features
+endpoint, so a history page never loads every feature of every run.
 
 **Errors specific to these endpoints**
 
@@ -263,6 +300,7 @@ engine applied, with defaults filled in, so a run can be repeated exactly.
 | 400 | `empty-upload`, `invalid-upload`, `invalid-request`, `invalid-parameter` | Empty file, bad file name, missing `current` part, `config` not a JSON object |
 | 404 | `model-not-found`, `run-not-found` | Unknown model or run |
 | 409 | `reference-required` | The model has no reference dataset yet |
+| 409 | `run-not-succeeded` | Features requested for a run that is not `SUCCEEDED` (`runStatus` says which state) |
 | 413 | `upload-too-large` | Batch over the upload limit |
 | 503 | `run-capacity-exceeded` | All workers busy and queue full; nothing was stored; `Retry-After: 30` |
 

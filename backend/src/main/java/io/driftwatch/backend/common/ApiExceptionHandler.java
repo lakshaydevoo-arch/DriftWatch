@@ -14,6 +14,7 @@ import io.driftwatch.backend.run.InvalidConfigException;
 import io.driftwatch.backend.run.ReferenceRequiredException;
 import io.driftwatch.backend.run.RunCapacityExceededException;
 import io.driftwatch.backend.run.RunNotFoundException;
+import io.driftwatch.backend.run.RunNotSucceededException;
 import java.net.URI;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -163,6 +164,19 @@ class ApiExceptionHandler extends ResponseEntityExceptionHandler {
   ProblemDetail handleRunNotFound(RunNotFoundException ex) {
     return problem(
         HttpStatus.NOT_FOUND, ProblemTypes.RUN_NOT_FOUND, "Run not found", ex.getMessage());
+  }
+
+  /** The run exists but has no per-feature results (yet): 409; the run's status is included. */
+  @ExceptionHandler(RunNotSucceededException.class)
+  ProblemDetail handleRunNotSucceeded(RunNotSucceededException ex) {
+    ProblemDetail problem =
+        problem(
+            HttpStatus.CONFLICT,
+            ProblemTypes.RUN_NOT_SUCCEEDED,
+            "Run has no results",
+            ex.getMessage());
+    problem.setProperty("runStatus", ex.getStatus());
+    return problem;
   }
 
   /** The model exists but cannot be monitored yet: a precondition, so 409, not 404. */

@@ -7,6 +7,84 @@ following session's commit (or read with `git log`).
 
 ---
 
+## 2026-11-27 — Milestone 2.8: run results API
+
+**Feature implemented**
+
+- `GET /api/v1/runs/{runId}/features`: the engine's per-feature results
+  (`FeatureDriftResult`, schema order, exactly as stored) with
+  `totalFeatures` / `returnedFeatures` and an optional `drifted=true|false`
+  filter. A run that is not `SUCCEEDED` gives `409 run-not-succeeded` with
+  `runStatus`, so a client can tell "still running" from "failed".
+- `GET /api/v1/models/{id}/runs?page&size`: run history of every status,
+  newest first, same page shape and limits as the model list (size 1–100).
+  Items are identical to `GET /api/v1/runs/{runId}`.
+- `RunQueries` (JDBC): one read model (`RunRow`) behind run detail and
+  history. PostgreSQL removes the feature list (`result - 'features'`) for
+  run views and extracts only it (`result -> 'features'`) for the features
+  endpoint. `GET /api/v1/runs/{runId}` now uses it too; `RunResponse` is built
+  from `RunRow` (the `POST` still builds from the just-created entity, so it
+  always shows `PENDING`).
+
+**Why this design**
+
+- *Problem:* 2.7 stored complete results but only exposed a summary; a
+  dashboard needs per-feature verdicts (4.4) and the history of runs (4.6).
+- *SQL-side JSON:* with results stored whole (D7), loading a history page
+  through JPA would read every feature of every run. Letting PostgreSQL
+  slice the `JSONB` keeps each response proportional to what it returns.
+- *Passed through, not re-modelled:* feature objects keep the engine's field
+  names, like `summary` already does; the Java side has no copy of the
+  statistics model to keep in sync.
+- *Features not paginated:* the list is bounded by the number of monitored
+  columns and lives in one row; a filter is more useful than pages. (The 2.7b
+  entry said a paginated features endpoint would come; on implementing it,
+  pagination added nothing, so it was left out.)
+
+**Trade-offs and failure cases**
+
+- The API mixes camelCase envelopes with snake_case engine payloads; this is
+  documented and consistent (all engine-produced JSON is snake_case).
+- Count and page are two queries; a run created between them can make
+  `totalItems` momentarily off by one (same as Spring Data paging).
+- Offset paging: deep pages scan more rows. Fine at the expected scale.
+
+**Files changed**
+
+- `backend/src/main/java/io/driftwatch/backend/run/`: `RunQueries`, `RunRow`,
+  `RunPageResponse`, `FeatureResultsResponse`, `RunNotSucceededException`
+  (new); `RunController`, `RunResponse`
+- `backend/src/main/java/io/driftwatch/backend/common/ApiExceptionHandler.java`,
+  `ProblemTypes.java`
+- Tests: `run/RunResultsApiTest` (new, 14 tests); `run/RunEngineContractTest`
+  (real features and history over HTTP)
+- Docs: `backend/README.md`, `ARCHITECTURE.md`, `DEVELOPMENT_ROADMAP.md`
+  (Milestone 2 complete), `CHANGELOG.md`, this log
+
+**Tests executed**
+
+- `./mvnw verify`: 179 passed, 16 skipped (engine-contract tests, gated on
+  `DRIFTWATCH_ANALYTICS_URL`), Spotless clean.
+- With a locally started real engine, full suite in reverse order: 195
+  passed, 0 skipped. The contract test checks a real drifted feature
+  (`psi > effective_threshold`) and that history returns the same run view.
+- `RunResultsApiTest` repeated 3 times: green.
+- A documentation edit script stopped on a wrong match (it asserts every
+  replacement); the remaining edits were re-applied and the diff reviewed.
+
+**Commit hash**
+
+- To be recorded in the next entry (see `git log`).
+
+**Remaining work**
+
+- Milestone 3: prediction drift and performance metrics (3.1 prediction
+  column handling first).
+- Push this commit when approved.
+- License decision (open).
+
+---
+
 ## 2026-11-26 — Milestone 2.7b: monitoring runs API
 
 **Feature implemented**
@@ -73,7 +151,7 @@ following session's commit (or read with `git log`).
 
 **Commit hash**
 
-- To be recorded in the next entry (see `git log`).
+- `025c729`
 
 **Remaining work**
 

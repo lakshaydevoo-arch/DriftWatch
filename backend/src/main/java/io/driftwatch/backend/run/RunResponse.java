@@ -12,7 +12,8 @@ import tools.jackson.databind.json.JsonMapper;
  * A monitoring run as returned by the API: its status, what it compares, and either a result
  * summary ({@code SUCCEEDED}) or an error ({@code FAILED}); both are {@code null} otherwise.
  *
- * <p>Per-feature results are not included here (they come with the run results API, task 2.8).
+ * <p>Per-feature results are not included; they are served by {@code GET
+ * /api/v1/runs/{runId}/features}.
  */
 public record RunResponse(
     UUID id,
@@ -59,34 +60,34 @@ public record RunResponse(
   public record ErrorView(URI type, String message, JsonNode details) {}
 
   static RunResponse of(MonitoringRun run, Dataset dataset, JsonMapper json) {
-    return new RunResponse(
-        run.getId(),
-        run.getModelId(),
-        run.getReferenceId(),
-        new DatasetView(
-            dataset.getId(),
-            dataset.getSha256(),
-            dataset.getByteSize(),
-            dataset.getOriginalFilename()),
-        run.getStatus(),
-        readOrNull(json, run.getRequestedConfig()),
-        run.getStatus() == RunStatus.SUCCEEDED ? result(run, json) : null,
-        run.getStatus() == RunStatus.FAILED
-            ? new ErrorView(
-                ProblemTypes.of(run.getErrorKind()),
-                run.getErrorMessage(),
-                readOrNull(json, run.getErrorDetails()))
-            : null,
-        run.getCreatedAt(),
-        run.getStartedAt(),
-        run.getFinishedAt());
+    return of(RunRow.of(run, dataset), json);
   }
 
-  private static ResultView result(MonitoringRun run, JsonMapper json) {
-    JsonNode result = json.readTree(run.getResult());
+  static RunResponse of(RunRow run, JsonMapper json) {
+    return new RunResponse(
+        run.id(),
+        run.modelId(),
+        run.referenceId(),
+        new DatasetView(run.datasetId(), run.sha256(), run.byteSize(), run.originalFilename()),
+        run.status(),
+        readOrNull(json, run.requestedConfig()),
+        run.status() == RunStatus.SUCCEEDED ? result(run, json) : null,
+        run.status() == RunStatus.FAILED
+            ? new ErrorView(
+                ProblemTypes.of(run.errorKind()),
+                run.errorMessage(),
+                readOrNull(json, run.errorDetails()))
+            : null,
+        run.createdAt(),
+        run.startedAt(),
+        run.finishedAt());
+  }
+
+  private static ResultView result(RunRow run, JsonMapper json) {
+    JsonNode result = json.readTree(run.resultSummary());
     JsonNode profileVersion = result.get("profile_engine_version");
     return new ResultView(
-        run.getEngineVersion(),
+        run.engineVersion(),
         profileVersion == null || profileVersion.isNull() ? null : profileVersion.asString(),
         result.path("n_rows").asLong(),
         result.get("summary"),

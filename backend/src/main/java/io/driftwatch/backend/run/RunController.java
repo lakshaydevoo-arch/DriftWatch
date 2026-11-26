@@ -1,5 +1,7 @@
 package io.driftwatch.backend.run;
 
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
@@ -16,6 +18,7 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.node.ArrayNode;
 
 /**
  * Starts monitoring runs and reports their status.
@@ -25,16 +28,22 @@ import tools.jackson.databind.json.JsonMapper;
  *       Accepted} at once, before the comparison runs.
  *   <li>{@code GET /api/v1/runs/{runId}}: poll until {@code status} is {@code SUCCEEDED} or {@code
  *       FAILED}.
+ *   <li>{@code GET /api/v1/runs/{runId}/features}: per-feature results of a successful run.
+ *   <li>{@code GET /api/v1/models/{modelId}/runs}: a model's run history, newest first.
  * </ul>
  */
 @RestController
 class RunController {
 
+  static final int MAX_PAGE_SIZE = 100;
+
   private final RunService service;
+  private final RunQueries queries;
   private final JsonMapper json;
 
-  RunController(RunService service, JsonMapper json) {
+  RunController(RunService service, RunQueries queries, JsonMapper json) {
     this.service = service;
+    this.queries = queries;
     this.json = json;
   }
 
@@ -70,8 +79,37 @@ class RunController {
   /** A run's status and, once finished, its summary or error. */
   @GetMapping(path = "/api/v1/runs/{runId}", produces = MediaType.APPLICATION_JSON_VALUE)
   RunResponse get(@PathVariable UUID runId) {
-    MonitoringRun run = service.get(runId);
-    return RunResponse.of(run, service.currentDatasetOf(run), json);
+    return RunResponse.of(queries.run(runId), json);
+  }
+
+  /** A model's runs, newest first; each without per-feature results. */
+  @GetMapping(path = "/api/v1/models/{modelId}/runs", produces = MediaType.APPLICATION_JSON_VALUE)
+  RunPageResponse history(
+      @PathVariable UUID modelId,
+      @RequestParam(defaultValue = "0") @Min(0) int page,
+      @RequestParam(defaultValue = "20") @Min(1) @Max(MAX_PAGE_SIZE) int size) {
+    return RunPageResponse.of(queries.history(modelId, page, size), json);
+  }
+
+  /**
+   * Per-feature results of a SUCCEEDED run, in schema order. {@code drifted=true} keeps only
+   * features with {@code drift_detected}, {@code drifted=false} only those without.
+   */
+  @GetMapping(path = "/api/v1/runs/{runId}/features", produces = MediaType.APPLICATION_JSON_VALUE)
+  FeatureResultsResponse features(
+      @PathVariable UUID runId, @RequestParam(required = false) Boolean drifted) {
+    RunQueries.Features found = queries.features(runId);
+    if (found.status() != RunStatus.SUCCEEDED) {
+      throw new RunNotSucceededException(runId, found.status());
+    }
+    JsonNode all = json.readTree(found.features());
+    ArrayNode selected = json.createArrayNode();
+    for (JsonNode feature : all) {
+      if (drifted == null || feature.path("drift_detected").asBoolean() == drifted) {
+        selected.add(feature);
+      }
+    }
+    return new FeatureResultsResponse(runId, all.size(), selected.size(), selected);
   }
 
   /** Syntax only; the engine validates the content (a bad value fails the run). */

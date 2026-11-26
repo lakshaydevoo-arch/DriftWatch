@@ -66,3 +66,7 @@ first release.
   optional `config`) and `GET /api/v1/runs/{runId}` (status, result summary
   or error); problem types `reference-required` (409), `run-not-found` (404)
   and `run-capacity-exceeded` (503 with `Retry-After`).
+- `backend`: run results: `GET /api/v1/runs/{runId}/features` (the engine's
+  per-feature results, optional `drifted` filter; `409 run-not-succeeded`
+  before a run succeeds) and `GET /api/v1/models/{id}/runs` (paginated run
+  history, newest first).

@@ -25,6 +25,7 @@ public final class ProblemTypes {
   public static final URI RUN_NOT_FOUND = of("run-not-found");
   public static final URI REFERENCE_REQUIRED = of("reference-required");
   public static final URI RUN_CAPACITY_EXCEEDED = of("run-capacity-exceeded");
+  public static final URI RUN_NOT_SUCCEEDED = of("run-not-succeeded");
 
   private ProblemTypes() {}
 
