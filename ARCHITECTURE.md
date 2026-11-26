@@ -109,7 +109,7 @@ boundary rather than an artificial one.
    mismatching batch becomes a `FAILED` run with `schema-mismatch`.
 4. Results are written in one transaction; the run becomes `SUCCEEDED`.
    Any engine error, timeout or validation failure produces `FAILED` with a
-   recorded reason — never a silently partial result. Implemented (2.7a);
+   recorded reason — never a silently partial result. Implemented (2.7);
    details in [backend/README.md](backend/README.md#monitoring-runs).
 
 ### 5.3 Performance monitoring (Milestone 3)
@@ -154,8 +154,8 @@ are application-generated UUIDs.
 | `GET`  | `/api/v1/models` | List models, paginated (implemented) |
 | `POST` | `/api/v1/models/{id}/reference` | Upload reference dataset (implemented; [contract](backend/README.md#reference-registration-api)) |
 | `GET`  | `/api/v1/models/{id}/reference` | Current reference and its inferred schema (implemented) |
-| `POST` | `/api/v1/models/{id}/runs` | Upload current batch and start a run |
-| `GET`  | `/api/v1/runs/{runId}` | Run status and summary |
+| `POST` | `/api/v1/models/{id}/runs` | Upload current batch and start a run (implemented; [contract](backend/README.md#monitoring-runs)) |
+| `GET`  | `/api/v1/runs/{runId}` | Run status and summary (implemented) |
 | `GET`  | `/api/v1/runs/{runId}/features` | Per-feature drift results |
 
 Internal engine API (`analytics`, not exposed publicly):

@@ -161,7 +161,7 @@ class RunLifecycleTest {
 
   @Test
   void theRequestedConfigIsStoredAndSentToTheEngine() throws Exception {
-    JsonNode config = json.readTree("{\"psi_threshold\": 0.25}");
+    JsonNode config = json.readTree("{\"numeric\": {\"psi_threshold\": 0.25}}");
 
     MonitoringRun run = awaitFinished(runs, submit(config).getId());
 

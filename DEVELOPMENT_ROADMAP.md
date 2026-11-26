@@ -55,11 +55,12 @@ Depends on: Milestone 1 API contracts (1.8).
   (storage layer; the HTTP upload endpoints arrive with 2.6 and 2.7)
 - ✅ 2.5 Analytics HTTP client with timeouts and error mapping
 - ✅ 2.6 Reference registration workflow (upload → profile → persist)
-- 🔄 2.7 Monitoring run lifecycle (`PENDING → RUNNING → SUCCEEDED/FAILED`)
+- ✅ 2.7 Monitoring run lifecycle (`PENDING → RUNNING → SUCCEEDED/FAILED`)
   on a bounded executor
   - ✅ 2.7a Run table (V4), bounded executor, worker, restart recovery
-  - ⏳ 2.7b `POST /api/v1/models/{id}/runs`, `GET /api/v1/runs/{runId}`
-- ⏳ 2.8 Run results API; end-to-end integration test with a real engine
+  - ✅ 2.7b `POST /api/v1/models/{id}/runs`, `GET /api/v1/runs/{runId}`
+- ⏳ 2.8 Run results API (per-feature results, run history); the end-to-end
+  test with a real engine exists since 2.7b
 
 ## Milestone 3 — Prediction drift and performance ⏳
 

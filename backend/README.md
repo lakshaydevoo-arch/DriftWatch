@@ -5,7 +5,7 @@ health and build-info endpoints (2.1); PostgreSQL with Flyway migrations and
 Testcontainers integration tests (2.2); model registry API (2.3); dataset
 file storage (2.4, internal: the upload endpoints come with 2.6 and 2.7);
 analytics engine client (2.5, internal); reference registration (2.6);
-monitoring run lifecycle (2.7a, internal: the HTTP endpoints come with 2.7b).
+monitoring runs (2.7): asynchronous drift runs with a status API.
 
 Spring Boot application that will expose the public REST API, store models,
 datasets, reference profiles and monitoring results in PostgreSQL, and call
@@ -210,8 +210,61 @@ foreign key on `(dataset_id, model_id, role)`).
 ## Monitoring runs
 
 A monitoring run compares one uploaded **current** batch with the model's
-reference profile on a background worker (package `run`). The HTTP endpoints
-arrive with task 2.7b; this section describes the lifecycle they will use.
+reference profile on a background worker (package `run`).
+
+| Method | Path | Success | Errors |
+|--------|------|---------|--------|
+| `POST` | `/api/v1/models/{id}/runs` | `202 Accepted` + `Location` + run (`PENDING`) | `400`, `404`, `409`, `413`, `415`, `503` |
+| `GET` | `/api/v1/runs/{runId}` | `200` run | `400` (malformed id), `404` (`run-not-found`) |
+
+```bash
+curl -i -F current=@today.csv localhost:8080/api/v1/models/$MODEL_ID/runs
+curl -F current=@today.csv -F 'config={"numeric": {"psi_threshold": 0.25}}' \
+     localhost:8080/api/v1/models/$MODEL_ID/runs
+curl localhost:8080/api/v1/runs/$RUN_ID        # poll until SUCCEEDED or FAILED
+```
+
+Request (`multipart/form-data`): `current` (the batch CSV) and optional
+`config`, a JSON [`DriftConfig`](../analytics/README.md#api) (for example
+`{"numeric": {"psi_threshold": 0.25}, "dataset_drift_share": 0.5}`) passed to
+the engine unchanged. The backend checks only that `config` is a JSON object;
+the engine checks its content **when the run executes**, so an invalid value
+gives a `FAILED` run with `invalid-config`, not a `400`.
+
+The `POST` answers immediately, before the comparison runs. Poll the
+`Location` until `status` is `SUCCEEDED` or `FAILED`:
+
+```json
+{"id": "...", "modelId": "...", "referenceId": "...",
+ "currentDataset": {"id": "...", "sha256": "...", "byteSize": 9983, "originalFilename": "today.csv"},
+ "status": "SUCCEEDED",
+ "requestedConfig": {"numeric": {"psi_threshold": 0.25}},
+ "result": {"engineVersion": "0.1.0.dev0", "profileEngineVersion": "0.1.0.dev0",
+            "rowCount": 800,
+            "summary": {"n_features": 2, "n_evaluated": 2, "n_insufficient_data": 0,
+                        "n_drifted": 1, "n_with_quality_flags": 0,
+                        "drift_share": 0.5, "dataset_drift": true},
+            "config": {"numeric": {"psi_threshold": 0.25, "...": "..."}, "...": "..."},
+            "issues": [], "warnings": []},
+ "error": null,
+ "createdAt": "...", "startedAt": "...", "finishedAt": "..."}
+```
+
+`result` is set only for `SUCCEEDED` runs and `error` only for `FAILED`
+runs: `{"type": "urn:driftwatch:problem:schema-mismatch", "message": "...",
+"details": [...]}`. Branch on `error.type`. Per-feature results are stored
+but not returned yet (task 2.8). `result.config` is the complete config the
+engine applied, with defaults filled in, so a run can be repeated exactly.
+
+**Errors specific to these endpoints**
+
+| Status | `type` suffix | When |
+|--------|---------------|------|
+| 400 | `empty-upload`, `invalid-upload`, `invalid-request`, `invalid-parameter` | Empty file, bad file name, missing `current` part, `config` not a JSON object |
+| 404 | `model-not-found`, `run-not-found` | Unknown model or run |
+| 409 | `reference-required` | The model has no reference dataset yet |
+| 413 | `upload-too-large` | Batch over the upload limit |
+| 503 | `run-capacity-exceeded` | All workers busy and queue full; nothing was stored; `Retry-After: 30` |
 
 ```text
 PENDING ──► RUNNING ──► SUCCEEDED   (engine's complete result stored)
@@ -222,11 +275,11 @@ PENDING ──► RUNNING ──► SUCCEEDED   (engine's complete result stored
 **Submitting** (`RunService.submit`):
 
 1. Reserve a place in the bounded executor. If all workers are busy and the
-   queue is full, refuse at once (`RunCapacityExceededException`, will be
-   `503`): nothing is stored.
+   queue is full, refuse at once (`503 run-capacity-exceeded`): nothing is
+   stored.
 2. Look up the model's current reference. The run is **pinned** to it, so
    registering a newer reference while a run waits does not change what the
-   run compares against. No reference → `ReferenceRequiredException`.
+   run compares against. No reference → `409 reference-required`.
 3. Store the file (no transaction open), then insert the `CURRENT` dataset
    and the `PENDING` run in one transaction.
 4. After the commit, hand the run to a worker.

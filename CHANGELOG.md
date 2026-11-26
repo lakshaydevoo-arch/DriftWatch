@@ -61,5 +61,8 @@ first release.
   on a bounded executor (`DRIFTWATCH_RUNS_CONCURRENCY`,
   `DRIFTWATCH_RUNS_QUEUE_CAPACITY`); runs are pinned to the reference current
   at submission, store the engine's full result or a failure reason, and runs
-  left unfinished by a restart are marked failed at startup. HTTP endpoints
-  follow in the next change.
+  left unfinished by a restart are marked failed at startup.
+- `backend`: runs API: `POST /api/v1/models/{id}/runs` (`202 Accepted`,
+  optional `config`) and `GET /api/v1/runs/{runId}` (status, result summary
+  or error); problem types `reference-required` (409), `run-not-found` (404)
+  and `run-capacity-exceeded` (503 with `Retry-After`).

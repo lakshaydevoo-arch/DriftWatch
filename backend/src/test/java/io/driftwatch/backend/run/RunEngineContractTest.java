@@ -3,12 +3,17 @@ package io.driftwatch.backend.run;
 import static io.driftwatch.backend.run.RunFixtures.awaitFinished;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.driftwatch.backend.Multipart;
 import io.driftwatch.backend.TestDatabase;
 import io.driftwatch.backend.TestcontainersConfiguration;
 import io.driftwatch.backend.model.ModelService;
 import io.driftwatch.backend.model.TaskType;
 import io.driftwatch.backend.reference.ReferenceService;
 import java.io.ByteArrayInputStream;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 import java.util.Random;
@@ -19,6 +24,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -32,12 +38,13 @@ import tools.jackson.databind.json.JsonMapper;
  * DRIFTWATCH_ANALYTICS_URL} is set (the {@code engine-contract} CI workflow sets it).
  */
 @EnabledIfEnvironmentVariable(named = "DRIFTWATCH_ANALYTICS_URL", matches = ".+")
-@SpringBootTest
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Import(TestcontainersConfiguration.class)
 class RunEngineContractTest {
 
   private final JsonMapper json = JsonMapper.builder().build();
 
+  @LocalServerPort private int port;
   @Autowired private JdbcTemplate jdbc;
   @Autowired private ModelService models;
   @Autowired private ReferenceService references;
@@ -109,5 +116,57 @@ class RunEngineContractTest {
     assertThat(run.getStatus()).isEqualTo(RunStatus.FAILED);
     assertThat(run.getErrorKind()).isEqualTo("schema-mismatch");
     assertThat(run.getErrorDetails()).contains("age");
+  }
+
+  @Test
+  void overHttpARunIsAcceptedAndPolledToItsResult() throws Exception {
+    HttpClient http = HttpClient.newHttpClient();
+    Multipart body =
+        new Multipart()
+            .file("current", "today.csv", "text/csv", csv(3, 800, 55))
+            .field("config", "{\"numeric\": {\"psi_threshold\": 0.25}}");
+
+    HttpResponse<String> accepted =
+        http.send(
+            HttpRequest.newBuilder(
+                    URI.create("http://localhost:" + port + "/api/v1/models/" + modelId + "/runs"))
+                .header("Content-Type", body.contentType())
+                .POST(body.publisher())
+                .build(),
+            HttpResponse.BodyHandlers.ofString());
+    assertThat(accepted.statusCode()).as(accepted.body()).isEqualTo(202);
+    URI location = URI.create(accepted.headers().firstValue("Location").orElseThrow());
+    awaitFinished(runs, UUID.fromString(json.readTree(accepted.body()).get("id").asString()));
+
+    JsonNode run =
+        json.readTree(
+            http.send(
+                    HttpRequest.newBuilder(location).GET().build(),
+                    HttpResponse.BodyHandlers.ofString())
+                .body());
+    assertThat(run.get("status").asString()).as(run.toString()).isEqualTo("SUCCEEDED");
+    JsonNode result = run.get("result");
+    assertThat(result.get("rowCount").asLong()).isEqualTo(800);
+    assertThat(result.get("summary").get("n_features").asInt()).isEqualTo(2);
+    assertThat(result.get("summary").get("n_drifted").asInt()).isGreaterThanOrEqualTo(1);
+    // The engine applied the requested threshold and reports it in the full config.
+    assertThat(result.get("config").get("numeric").get("psi_threshold").asDouble()).isEqualTo(0.25);
+  }
+
+  @Test
+  void aConfigTheEngineRejectsFailsTheRunWithInvalidConfig() throws Exception {
+    MonitoringRun run =
+        awaitFinished(
+            runs,
+            runs.submit(
+                    modelId,
+                    "today.csv",
+                    new ByteArrayInputStream(csv(4, 200, 40)),
+                    json.readTree("{\"psi_threshold\": 0.25}"))
+                .getId());
+
+    assertThat(run.getStatus()).isEqualTo(RunStatus.FAILED);
+    assertThat(run.getErrorKind()).isEqualTo("invalid-config");
+    assertThat(run.getErrorDetails()).contains("psi_threshold");
   }
 }

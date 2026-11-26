@@ -36,7 +36,7 @@ final class RunFixtures {
   static final String DRIFT_RESPONSE =
       """
       {"engine_version": "0.1.0.dev0", "profile_engine_version": "0.1.0.dev0",
-       "config": {"psi_threshold": 0.2}, "n_rows": 2,
+       "config": {"numeric": {"psi_threshold": 0.2}}, "n_rows": 2,
        "summary": {"n_features": 1, "n_evaluated": 1, "n_insufficient_data": 0,
                    "n_drifted": 1, "n_with_quality_flags": 0, "drift_share": 1.0,
                    "dataset_drift": true},

@@ -7,6 +7,83 @@ following session's commit (or read with `git log`).
 
 ---
 
+## 2026-11-26 — Milestone 2.7b: monitoring runs API
+
+**Feature implemented**
+
+- `POST /api/v1/models/{id}/runs` (multipart `current` + optional JSON
+  `config`): stores the batch, queues a run and answers `202 Accepted` with
+  `Location: /api/v1/runs/{runId}` and the `PENDING` run.
+- `GET /api/v1/runs/{runId}`: status, the compared dataset, the requested
+  config, timestamps and either `result` (engine and profile versions, row
+  count, summary, the full applied config, issues, warnings) or `error`
+  (`type` URN, `message`, `details`). Per-feature results stay in the
+  database until 2.8.
+- Problem types: `reference-required` (409: the model exists but has no
+  reference, a precondition rather than a missing resource),
+  `run-not-found` (404), `run-capacity-exceeded` (503, `Retry-After: 30`).
+  A `config` that is not a JSON object is `400 invalid-parameter`.
+
+**Why this design**
+
+- `202` + `Location` is the standard shape for work that finishes later; the
+  client polls instead of holding a connection for minutes.
+- `error.type` uses the same `urn:driftwatch:problem:` scheme as HTTP
+  errors, so a client handles "the engine rejected my batch" the same way
+  whether it happened synchronously (reference registration) or in a run.
+- The summary is returned but not the per-feature list: it keeps polling
+  responses small, and 2.8 adds a dedicated, paginated features endpoint.
+
+**Found by the real-engine test**
+
+- The new HTTP contract test first sent `{"psi_threshold": 0.25}` and the run
+  came back `FAILED` with `invalid-config` ("Extra inputs are not
+  permitted"): `DriftConfig` is nested (`{"numeric": {"psi_threshold": …}}`).
+  The code was right and showed the failure correctly; the test data and the
+  mocked fixtures from 2.7a used the wrong shape. They now use the nested
+  shape, and the rejection became its own contract test.
+
+**Trade-offs and failure cases**
+
+- Clients must poll; there is no push notification (alerting is on the
+  "later" list).
+- An invalid `config` value is reported by the run (`FAILED`,
+  `invalid-config`), not by the `POST`, because only the engine knows the
+  schema. Mirroring the engine's validation in Java would duplicate it.
+
+**Files changed**
+
+- `backend/src/main/java/io/driftwatch/backend/run/RunController.java`,
+  `RunResponse.java`, `InvalidConfigException.java` (new)
+- `backend/src/main/java/io/driftwatch/backend/common/ApiExceptionHandler.java`,
+  `ProblemTypes.java`
+- Tests: `run/RunApiTest` (new); `run/RunCapacityTest` (HTTP 503 case),
+  `run/RunEngineContractTest` (HTTP end to end, rejected config),
+  `run/RunFixtures`, `run/RunLifecycleTest` (nested config shape)
+- Docs: `backend/README.md`, `ARCHITECTURE.md`, `DEVELOPMENT_ROADMAP.md`,
+  `CHANGELOG.md`, this log
+
+**Tests executed**
+
+- `./mvnw verify`: 165 passed, 16 skipped (engine-contract tests, gated on
+  `DRIFTWATCH_ANALYTICS_URL`), Spotless clean.
+- With a locally started real engine, full suite in reverse order: 181
+  passed, 0 skipped (16 engine-contract tests, 4 of them for runs).
+- `RunApiTest` + `RunCapacityTest` repeated 3 times: green.
+
+**Commit hash**
+
+- To be recorded in the next entry (see `git log`).
+
+**Remaining work**
+
+- 2.8: `GET /api/v1/runs/{runId}/features` (per-feature results) and run
+  history per model (`GET /api/v1/models/{id}/runs`, paginated).
+- Push the two 2.7 commits when approved; CI has not run on them yet.
+- License decision (open).
+
+---
+
 ## 2026-11-26 — Milestone 2.7a: monitoring run lifecycle
 
 **Feature implemented**
@@ -97,7 +174,7 @@ following session's commit (or read with `git log`).
 
 **Commit hash**
 
-- To be recorded in the next entry (see `git log`).
+- `b70a73d`
 
 **Remaining work**
 

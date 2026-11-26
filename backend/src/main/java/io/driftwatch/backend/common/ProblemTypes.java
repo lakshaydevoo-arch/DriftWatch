@@ -22,6 +22,9 @@ public final class ProblemTypes {
   public static final URI INVALID_UPLOAD = of("invalid-upload");
   public static final URI ANALYTICS_UNAVAILABLE = of("analytics-unavailable");
   public static final URI ANALYTICS_PROTOCOL_ERROR = of("analytics-protocol-error");
+  public static final URI RUN_NOT_FOUND = of("run-not-found");
+  public static final URI REFERENCE_REQUIRED = of("reference-required");
+  public static final URI RUN_CAPACITY_EXCEEDED = of("run-capacity-exceeded");
 
   private ProblemTypes() {}
 

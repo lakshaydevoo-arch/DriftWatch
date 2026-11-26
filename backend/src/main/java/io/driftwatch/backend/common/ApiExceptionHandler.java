@@ -10,6 +10,10 @@ import io.driftwatch.backend.model.ModelNameTakenException;
 import io.driftwatch.backend.model.ModelNotFoundException;
 import io.driftwatch.backend.reference.InvalidOptionsException;
 import io.driftwatch.backend.reference.ReferenceNotFoundException;
+import io.driftwatch.backend.run.InvalidConfigException;
+import io.driftwatch.backend.run.ReferenceRequiredException;
+import io.driftwatch.backend.run.RunCapacityExceededException;
+import io.driftwatch.backend.run.RunNotFoundException;
 import java.net.URI;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -155,6 +159,35 @@ class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         ex.getMessage());
   }
 
+  @ExceptionHandler(RunNotFoundException.class)
+  ProblemDetail handleRunNotFound(RunNotFoundException ex) {
+    return problem(
+        HttpStatus.NOT_FOUND, ProblemTypes.RUN_NOT_FOUND, "Run not found", ex.getMessage());
+  }
+
+  /** The model exists but cannot be monitored yet: a precondition, so 409, not 404. */
+  @ExceptionHandler(ReferenceRequiredException.class)
+  ProblemDetail handleReferenceRequired(ReferenceRequiredException ex) {
+    return problem(
+        HttpStatus.CONFLICT,
+        ProblemTypes.REFERENCE_REQUIRED,
+        "Reference required",
+        ex.getMessage());
+  }
+
+  /** Refused before anything was stored; the same request can simply be repeated later. */
+  @ExceptionHandler(RunCapacityExceededException.class)
+  ResponseEntity<ProblemDetail> handleRunCapacity(RunCapacityExceededException ex) {
+    return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+        .header(HttpHeaders.RETRY_AFTER, "30")
+        .body(
+            problem(
+                HttpStatus.SERVICE_UNAVAILABLE,
+                ProblemTypes.RUN_CAPACITY_EXCEEDED,
+                "Too many runs",
+                ex.getMessage()));
+  }
+
   /**
    * The engine rejected the uploaded data: pass its problem type, detail and errors through, so the
    * client sees exactly why (e.g. {@code invalid-csv: duplicate column names}).
@@ -233,8 +266,8 @@ class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         HttpStatus.BAD_REQUEST, ProblemTypes.INVALID_UPLOAD, "Invalid upload", ex.getMessage());
   }
 
-  @ExceptionHandler(InvalidOptionsException.class)
-  ProblemDetail handleInvalidOptions(InvalidOptionsException ex) {
+  @ExceptionHandler({InvalidOptionsException.class, InvalidConfigException.class})
+  ProblemDetail handleInvalidJsonField(RuntimeException ex) {
     return problem(
         HttpStatus.BAD_REQUEST,
         ProblemTypes.INVALID_PARAMETER,
